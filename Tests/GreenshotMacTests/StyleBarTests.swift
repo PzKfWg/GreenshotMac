@@ -278,6 +278,16 @@ final class ToolTypeForAnnotationTests: XCTestCase {
         let annotation = HighlightFilter(bounds: CGRect(x: 0, y: 0, width: 50, height: 50))
         XCTAssertEqual(toolType(for: annotation), .highlight)
     }
+
+    func testObfuscateFilterMapsToObfuscateTool() {
+        let annotation = ObfuscateFilter(bounds: CGRect(x: 0, y: 0, width: 50, height: 50))
+        XCTAssertEqual(toolType(for: annotation), .obfuscate)
+    }
+
+    func testFreehandAnnotationMapsToFreehandTool() {
+        let annotation = FreehandAnnotation(points: [CGPoint(x: 0, y: 0), CGPoint(x: 50, y: 50)])
+        XCTAssertEqual(toolType(for: annotation), .freehand)
+    }
 }
 
 @MainActor
