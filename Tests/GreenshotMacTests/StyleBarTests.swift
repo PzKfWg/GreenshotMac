@@ -386,4 +386,60 @@ final class StyleApplicationTests: XCTestCase {
         XCTAssertEqual(strokeAlpha, 0.3, accuracy: 0.01)
         XCTAssertEqual(fillAlpha, 0.7, accuracy: 0.01)
     }
+
+    func testSpeechBubbleDashPatternApplied() {
+        var style = SpeechBubbleAnnotation.defaultStyle
+        style.dashPattern = .dashed
+        let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 0, y: 0, width: 100, height: 60), style: style)
+        XCTAssertEqual(bubble.style.dashPattern, .dashed)
+    }
+
+    func testHighlightFilterOpacityStored() {
+        var style = AnnotationStyle()
+        style.fillColor = NSColor.yellow.withAlphaComponent(0.4)
+        style.opacity = 0.5
+        style.shadow = .none
+        let highlight = HighlightFilter(bounds: CGRect(x: 0, y: 0, width: 50, height: 50), style: style)
+        XCTAssertEqual(highlight.style.opacity, 0.5, accuracy: 0.01)
+    }
+
+    func testPreferencesDefaultFontName() {
+        let prefs = Preferences.shared
+        let original = prefs.defaultFontName
+        prefs.defaultFontName = "Courier"
+        XCTAssertEqual(prefs.defaultFontName, "Courier")
+        prefs.defaultFontName = original
+    }
+
+    func testPreferencesDefaultOpacity() {
+        let prefs = Preferences.shared
+        let original = prefs.defaultOpacity
+        prefs.defaultOpacity = 0.7
+        XCTAssertEqual(prefs.defaultOpacity, 0.7, accuracy: 0.01)
+        prefs.defaultOpacity = original
+    }
+
+    func testPreferencesDefaultDashPattern() {
+        let prefs = Preferences.shared
+        let original = prefs.defaultDashPattern
+        prefs.defaultDashPattern = DashPattern.dashed.rawValue
+        XCTAssertEqual(prefs.defaultDashPattern, "dashed")
+        prefs.defaultDashPattern = original
+    }
+
+    func testPreferencesDefaultFontUnderline() {
+        let prefs = Preferences.shared
+        let original = prefs.defaultFontUnderline
+        prefs.defaultFontUnderline = true
+        XCTAssertTrue(prefs.defaultFontUnderline)
+        prefs.defaultFontUnderline = original
+    }
+
+    func testPreferencesDefaultTextAlignment() {
+        let prefs = Preferences.shared
+        let original = prefs.defaultTextAlignment
+        prefs.defaultTextAlignment = 2  // right
+        XCTAssertEqual(prefs.defaultTextAlignment, 2)
+        prefs.defaultTextAlignment = original
+    }
 }
