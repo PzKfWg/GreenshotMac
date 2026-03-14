@@ -77,4 +77,21 @@ final class StepLabelAnnotationTests: XCTestCase {
         _ = StepLabelAnnotation(center: CGPoint(x: 50, y: 50))
         XCTAssertEqual(StepLabelAnnotation.currentCounter, 2)
     }
+
+    func testDefaultStyleValues() {
+        let step = StepLabelAnnotation(center: CGPoint(x: 50, y: 50))
+        // DarkRed fill
+        XCTAssertEqual(step.style.fillColor, NSColor(red: 0.55, green: 0, blue: 0, alpha: 1))
+        // White text (strokeColor)
+        XCTAssertEqual(step.style.strokeColor, .white)
+        // No shadow
+        XCTAssertEqual(step.style.shadow, .none)
+    }
+
+    func testCustomStrokeColorUsedForNumber() {
+        var customStyle = StepLabelAnnotation.defaultStyle
+        customStyle.strokeColor = .blue
+        let step = StepLabelAnnotation(center: CGPoint(x: 50, y: 50), style: customStyle)
+        XCTAssertEqual(step.style.strokeColor, .blue)
+    }
 }

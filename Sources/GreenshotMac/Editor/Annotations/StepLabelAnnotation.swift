@@ -53,11 +53,19 @@ final class StepLabelAnnotation: Annotation {
 
     func draw(in context: CGContext) {
         context.saveGState()
+        context.setAlpha(style.opacity)
         style.shadow.apply(to: context)
 
         let fillColor = style.fillColor == .clear ? NSColor.systemRed : style.fillColor
         context.setFillColor(fillColor.cgColor)
         context.fillEllipse(in: bounds)
+
+        // Optional border ring (when strokeWidth > 0)
+        if style.strokeWidth > 0 {
+            context.setStrokeColor(style.strokeColor.cgColor)
+            context.setLineWidth(style.strokeWidth)
+            context.strokeEllipse(in: bounds)
+        }
 
         context.restoreGState()
 
@@ -67,7 +75,7 @@ final class StepLabelAnnotation: Annotation {
         let fontSize = autoScaledFontSize(for: numStr as String)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.boldSystemFont(ofSize: fontSize),
-            .foregroundColor: NSColor.white
+            .foregroundColor: style.strokeColor
         ]
         let size = numStr.size(withAttributes: attrs)
         let textOrigin = CGPoint(
