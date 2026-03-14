@@ -14,6 +14,15 @@ final class Preferences {
         static let defaultStrokeWidth = "defaultStrokeWidth"
         static let defaultShadowEnabled = "defaultShadowEnabled"
         static let stepLabelStartNumber = "stepLabelStartNumber"
+        static let defaultFontSize = "defaultFontSize"
+        static let defaultFontBold = "defaultFontBold"
+        static let defaultFontItalic = "defaultFontItalic"
+        static let defaultFontUnderline = "defaultFontUnderline"
+        static let defaultFontName = "defaultFontName"
+        static let defaultDashPattern = "defaultDashPattern"
+        static let defaultOpacity = "defaultOpacity"
+        static let defaultTextAlignment = "defaultTextAlignment"
+        static let lastUsedTool = "lastUsedTool"
     }
 
     var screenshotFolder: String {
@@ -70,6 +79,57 @@ final class Preferences {
             return val >= 1 ? val : 1
         }
         set { defaults.set(max(1, newValue), forKey: Keys.stepLabelStartNumber) }
+    }
+
+    var defaultFontSize: CGFloat {
+        get {
+            let val = defaults.double(forKey: Keys.defaultFontSize)
+            return val > 0 ? val : 14.0
+        }
+        set { defaults.set(newValue, forKey: Keys.defaultFontSize) }
+    }
+
+    var defaultFontBold: Bool {
+        get { defaults.bool(forKey: Keys.defaultFontBold) }
+        set { defaults.set(newValue, forKey: Keys.defaultFontBold) }
+    }
+
+    var defaultFontItalic: Bool {
+        get { defaults.bool(forKey: Keys.defaultFontItalic) }
+        set { defaults.set(newValue, forKey: Keys.defaultFontItalic) }
+    }
+
+    var defaultFontUnderline: Bool {
+        get { defaults.bool(forKey: Keys.defaultFontUnderline) }
+        set { defaults.set(newValue, forKey: Keys.defaultFontUnderline) }
+    }
+
+    var defaultFontName: String {
+        get { defaults.string(forKey: Keys.defaultFontName) ?? "Helvetica" }
+        set { defaults.set(newValue, forKey: Keys.defaultFontName) }
+    }
+
+    var defaultDashPattern: String {
+        get { defaults.string(forKey: Keys.defaultDashPattern) ?? DashPattern.solid.rawValue }
+        set { defaults.set(newValue, forKey: Keys.defaultDashPattern) }
+    }
+
+    var defaultOpacity: CGFloat {
+        get {
+            let val = defaults.double(forKey: Keys.defaultOpacity)
+            return val > 0 ? val : 1.0
+        }
+        set { defaults.set(newValue, forKey: Keys.defaultOpacity) }
+    }
+
+    var defaultTextAlignment: Int {
+        get { defaults.integer(forKey: Keys.defaultTextAlignment) }
+        set { defaults.set(newValue, forKey: Keys.defaultTextAlignment) }
+    }
+
+    var lastUsedTool: String? {
+        get { defaults.string(forKey: Keys.lastUsedTool) }
+        set { defaults.set(newValue, forKey: Keys.lastUsedTool) }
     }
 
     private init() {}
