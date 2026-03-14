@@ -6,14 +6,40 @@ final class SpeechBubbleAnnotation: Annotation {
     var bounds: CGRect
     var style: AnnotationStyle
     var isSelected: Bool = false
-    var text: String = "Text"
+    var text: String = "Texte"
     var tailPoint: CGPoint
 
-    private let cornerRadius: CGFloat = 8
+    /// Adaptive corner radius matching Greenshot Windows:
+    /// min(30, smallerSide / 2 - lineThickness)
+    var cornerRadius: CGFloat {
+        let smallerSide = min(abs(bounds.width), abs(bounds.height))
+        return max(0, min(30, smallerSide / 2 - style.strokeWidth))
+    }
 
-    init(bounds: CGRect, style: AnnotationStyle = AnnotationStyle(), text: String = "Text", tailPoint: CGPoint? = nil) {
+    /// Tail width matching Greenshot Windows formula:
+    /// (|width| + |height|) / 20, capped to half of each dimension
+    var tailWidth: CGFloat {
+        var w = (abs(bounds.width) + abs(bounds.height)) / 20
+        w = min(abs(bounds.width) / 2, w)
+        w = min(abs(bounds.height) / 2, w)
+        return max(4, w) // minimum 4px to remain visible
+    }
+
+    /// Default style for speech bubble, aligned with Greenshot Windows defaults:
+    /// Blue stroke, white fill, bold, 20pt font, no shadow
+    static var defaultStyle: AnnotationStyle {
+        var s = AnnotationStyle()
+        s.strokeColor = .systemBlue
+        s.fillColor = .white
+        s.fontBold = true
+        s.fontSize = 20.0
+        s.shadow = .none
+        return s
+    }
+
+    init(bounds: CGRect, style: AnnotationStyle? = nil, text: String = "Texte", tailPoint: CGPoint? = nil) {
         self.bounds = bounds
-        self.style = style
+        self.style = style ?? SpeechBubbleAnnotation.defaultStyle
         self.text = text
         // In flipped coords (isFlipped=true), maxY is the bottom edge
         self.tailPoint = tailPoint ?? CGPoint(x: bounds.midX, y: bounds.maxY + 30)
@@ -23,42 +49,39 @@ final class SpeechBubbleAnnotation: Annotation {
         context.saveGState()
         style.shadow.apply(to: context)
 
-        let path = buildPath()
+        let bubblePath = buildBubblePath()
+        let tailPath = buildTailPath()
 
-        // Fill
+        // Fill bubble body
         if style.fillColor != .clear {
-            context.addPath(path)
+            context.addPath(bubblePath)
             context.setFillColor(style.fillColor.cgColor)
             context.fillPath()
         }
 
-        // Stroke
-        context.addPath(path)
+        // Fill tail
+        if style.fillColor != .clear {
+            context.addPath(tailPath)
+            context.setFillColor(style.fillColor.cgColor)
+            context.fillPath()
+        }
+
+        // Stroke bubble
+        context.addPath(bubblePath)
+        context.setStrokeColor(style.strokeColor.cgColor)
+        context.setLineWidth(style.strokeWidth)
+        context.strokePath()
+
+        // Stroke tail (only the two outer edges, not the base that overlaps with bubble)
+        context.addPath(tailPath)
         context.setStrokeColor(style.strokeColor.cgColor)
         context.setLineWidth(style.strokeWidth)
         context.strokePath()
 
         context.restoreGState()
 
-        // Draw text inside the body (CoreText expects bottom-up Y; flip for isFlipped view)
-        context.saveGState()
-        let textInset = bounds.insetBy(dx: 6, dy: 4)
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont(name: style.fontName, size: style.fontSize)
-                ?? NSFont.systemFont(ofSize: style.fontSize),
-            .foregroundColor: style.strokeColor
-        ]
-        let attrString = NSAttributedString(string: text, attributes: attrs)
-        let framesetter = CTFramesetterCreateWithAttributedString(attrString)
-
-        context.translateBy(x: textInset.origin.x, y: textInset.origin.y + textInset.height)
-        context.scaleBy(x: 1.0, y: -1.0)
-
-        let localRect = CGRect(origin: .zero, size: textInset.size)
-        let textPath = CGPath(rect: localRect, transform: nil)
-        let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), textPath, nil)
-        CTFrameDraw(frame, context)
-        context.restoreGState()
+        // Draw text inside the body
+        drawText(in: context)
 
         drawSelectionHandles(in: context)
     }
@@ -75,20 +98,108 @@ final class SpeechBubbleAnnotation: Annotation {
         SpeechBubbleAnnotation(bounds: bounds, style: style, text: text, tailPoint: tailPoint)
     }
 
-    // MARK: - Private
+    // MARK: - Text rendering (uses bold/italic/alignment from iteration 2)
 
-    private func buildPath() -> CGPath {
+    private func drawText(in context: CGContext) {
+        context.saveGState()
+
+        let textInset = bounds.insetBy(dx: 6, dy: 4)
+        guard textInset.width > 0 && textInset.height > 0 else {
+            context.restoreGState()
+            return
+        }
+
+        let font = resolveFont()
+        let paragraphStyle = NSMutableParagraphStyle()
+        switch style.textHorizontalAlignment {
+        case .left:   paragraphStyle.alignment = .left
+        case .center: paragraphStyle.alignment = .center
+        case .right:  paragraphStyle.alignment = .right
+        }
+
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: style.strokeColor,
+            .paragraphStyle: paragraphStyle
+        ]
+        let attrString = NSAttributedString(string: text, attributes: attrs)
+        let framesetter = CTFramesetterCreateWithAttributedString(attrString)
+
+        // CoreText expects bottom-up Y axis; flip for our isFlipped view
+        context.translateBy(x: textInset.origin.x, y: textInset.origin.y + textInset.height)
+        context.scaleBy(x: 1.0, y: -1.0)
+
+        let localRect = CGRect(origin: .zero, size: textInset.size)
+
+        // Vertical alignment
+        let textSize = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            CFRangeMake(0, 0),
+            nil,
+            CGSize(width: textInset.width, height: CGFloat.greatestFiniteMagnitude),
+            nil
+        )
+
+        var drawRect = localRect
+        switch style.textVerticalAlignment {
+        case .top:
+            break
+        case .center:
+            let yOffset = max(0, (localRect.height - textSize.height) / 2)
+            drawRect.origin.y = yOffset
+            drawRect.size.height = localRect.height - yOffset
+        case .bottom:
+            let yOffset = max(0, localRect.height - textSize.height)
+            drawRect.origin.y = yOffset
+            drawRect.size.height = localRect.height - yOffset
+        }
+
+        let textPath = CGPath(rect: drawRect, transform: nil)
+        let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), textPath, nil)
+        CTFrameDraw(frame, context)
+        context.restoreGState()
+    }
+
+    /// Resolves the font with bold/italic traits, same as TextAnnotation
+    private func resolveFont() -> NSFont {
+        var traits: NSFontTraitMask = []
+        if style.fontBold { traits.insert(.boldFontMask) }
+        if style.fontItalic { traits.insert(.italicFontMask) }
+
+        if let baseFont = NSFont(name: style.fontName, size: style.fontSize) {
+            if !traits.isEmpty {
+                if let converted = NSFontManager.shared.convert(baseFont, toHaveTrait: traits) as NSFont? {
+                    return converted
+                }
+            }
+            return baseFont
+        }
+
+        let systemFont = NSFont.systemFont(ofSize: style.fontSize)
+        if !traits.isEmpty {
+            if let converted = NSFontManager.shared.convert(systemFont, toHaveTrait: traits) as NSFont? {
+                return converted
+            }
+        }
+        return systemFont
+    }
+
+    // MARK: - Path construction
+
+    private func buildBubblePath() -> CGPath {
+        let cr = cornerRadius
+        if cr <= 0 {
+            return CGPath(rect: bounds, transform: nil)
+        }
+        return CGPath(roundedRect: bounds, cornerWidth: cr, cornerHeight: cr, transform: nil)
+    }
+
+    private func buildTailPath() -> CGPath {
         let path = CGMutablePath()
-
-        // Rounded rectangle body
-        path.addRoundedRect(in: bounds, cornerWidth: cornerRadius, cornerHeight: cornerRadius)
-
-        // Tail triangle from bottom-center of body to tailPoint
-        // In flipped coords, maxY is the bottom edge
-        let tailWidth: CGFloat = min(20, bounds.width * 0.3)
+        let tw = tailWidth
         let bottomCenter = CGPoint(x: bounds.midX, y: bounds.maxY)
-        let tailLeft = CGPoint(x: bottomCenter.x - tailWidth / 2, y: bottomCenter.y)
-        let tailRight = CGPoint(x: bottomCenter.x + tailWidth / 2, y: bottomCenter.y)
+        let tailLeft = CGPoint(x: bottomCenter.x - tw / 2, y: bottomCenter.y)
+        let tailRight = CGPoint(x: bottomCenter.x + tw / 2, y: bottomCenter.y)
 
         path.move(to: tailLeft)
         path.addLine(to: tailPoint)
@@ -99,10 +210,10 @@ final class SpeechBubbleAnnotation: Annotation {
     }
 
     private func isNearTail(point: CGPoint) -> Bool {
-        let tailWidth: CGFloat = min(20, bounds.width * 0.3)
+        let tw = tailWidth
         let bottomCenter = CGPoint(x: bounds.midX, y: bounds.maxY)
-        let tailLeft = CGPoint(x: bottomCenter.x - tailWidth / 2, y: bottomCenter.y)
-        let tailRight = CGPoint(x: bottomCenter.x + tailWidth / 2, y: bottomCenter.y)
+        let tailLeft = CGPoint(x: bottomCenter.x - tw / 2, y: bottomCenter.y)
+        let tailRight = CGPoint(x: bottomCenter.x + tw / 2, y: bottomCenter.y)
 
         return pointInTriangle(point, v1: tailLeft, v2: tailPoint, v3: tailRight)
     }

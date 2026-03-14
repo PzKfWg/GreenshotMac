@@ -344,13 +344,30 @@ Boîte de texte avec un texte par défaut "Texte".
 
 ### 3.6 Bulle de dialogue (Speech Bubble)
 
-Boîte de texte avec un corps arrondi (rounded rect, rayon 8px) et une **queue triangulaire** pointant vers un point configurable.
+Boîte de texte avec un corps arrondi et une **queue triangulaire** pointant vers un point configurable. Hérite conceptuellement de TextContainer dans Greenshot Windows (SpeechbubbleContainer extends TextContainer).
 
 **Taille initiale :** 150x60 pixels.
 
-**Queue :** Triangle depuis le milieu du bord inférieur du corps vers `tailPoint`. Largeur de la queue = min(20px, 30% de la largeur du corps). Par défaut, `tailPoint` est 30px sous le centre du bord inférieur.
+**Style par défaut (aligné avec Greenshot Windows) :**
+- `strokeColor` = bleu (`.systemBlue`) — Windows: `Color.Blue`
+- `fillColor` = blanc (`.white`) — Windows: `Color.White`
+- `fontBold` = `true` — Windows: `FONT_BOLD = true`
+- `fontSize` = 20.0 — Windows: `FONT_SIZE = 20f`
+- `shadow` = désactivé — Windows: `SHADOW = false`
+- Un style personnalisé peut être passé pour remplacer ces défauts.
 
-**Texte :** Dessiné à l'intérieur du corps avec un inset de 6px horizontal et 4px vertical.
+**Corps arrondi (corner radius adaptatif, aligné avec Greenshot Windows) :**
+- Rayon = `min(30, smallerSide / 2 - strokeWidth)`, minimum 0.
+- Pour les grandes bulles, le rayon est plafonné à 30px.
+- Pour les petites bulles, le rayon se réduit proportionnellement.
+- Si le rayon atteint 0, un rectangle simple est utilisé.
+
+**Queue (tail width formula alignée avec Greenshot Windows) :**
+- Largeur = `(|width| + |height|) / 20`, plafonnée à la moitié de chaque dimension, minimum 4px.
+- Triangle depuis le milieu du bord inférieur du corps vers `tailPoint`.
+- Par défaut, `tailPoint` est 30px sous le centre du bord inférieur.
+
+**Texte :** Dessiné à l'intérieur du corps avec un inset de 6px horizontal et 4px vertical. Supporte gras/italique et alignement horizontal/vertical (mêmes propriétés que TextAnnotation).
 
 **Hit test :** Détecte les clics dans le corps (bounds + 4px tolérance) OU dans le triangle de la queue (test par coordonnées barycentriques).
 
@@ -362,6 +379,11 @@ Boîte de texte avec un corps arrondi (rounded rect, rayon 8px) et une **queue t
 - CT-3.6.5 : Cliquer en dehors du corps et de la queue ne sélectionne pas.
 - CT-3.6.6 : La copie préserve le texte et la position de `tailPoint`.
 - CT-3.6.7 : `tailPoint` peut être modifié programmatiquement.
+- CT-3.6.8 : Style par défaut = bleu, fond blanc, gras, 20pt, pas d'ombre.
+- CT-3.6.9 : Corner radius adaptatif : 30px max, réduit pour petites bulles.
+- CT-3.6.10 : Corner radius = 0 pour bulles très petites.
+- CT-3.6.11 : Tail width suit la formule `(w+h)/20`, plafonnée et minimale.
+- CT-3.6.12 : Un style personnalisé remplace les défauts.
 
 ### 3.7 Numéros d'étapes (Step Labels)
 

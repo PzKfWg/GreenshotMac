@@ -4,7 +4,7 @@
 
 - [x] Arrow
 - [x] Text
-- [ ] SpeechBubble
+- [x] SpeechBubble
 - [ ] Rectangle
 - [ ] Ellipse
 - [ ] Line
@@ -89,3 +89,40 @@
 - `testCopyPreservesAlignmentAndFontTraits`
 
 **Résultat des tests :** ✅ 264 tests, 0 failures
+
+### Itération 3 — SpeechBubble
+
+**Fichiers C# lus :**
+- `Drawing/SpeechbubbleContainer.cs` — classe principale
+
+**Écarts trouvés :**
+
+| Aspect | Greenshot Windows | GreenshotMac (avant) | Correction |
+|--------|------------------|---------------------|------------|
+| Corner radius | Adaptatif: min(30, smallerSide/2 - lineThickness) | Fixe 8px | Adaptatif via computed property |
+| Tail width | (w+h)/20, capped to half dims | Fixed min(20, w*0.3) | Formule Windows + minimum 4px |
+| Default stroke color | Blue | Red (hérité) | .systemBlue |
+| Default fill color | White | Clear (hérité) | .white |
+| Default font bold | true | false (hérité) | true |
+| Default font size | 20f | 14.0 (hérité) | 20.0 |
+| Default shadow | false | enabled (hérité) | .none |
+| Text rendering | Bold/italic/alignment via TextContainer | Pas de support | Intégré via resolveFont() + alignment |
+| Tail draggable | TargetAdorner + drag | Position fixe | À FAIRE |
+| Clipping regions | Exclude tail/bubble for clean overlap | Pas de clipping | Différence visuelle mineure |
+
+**Corrections apportées :**
+- Refonte SpeechBubbleAnnotation avec defaultStyle statique (blue/white/bold/20pt/no-shadow)
+- Corner radius adaptatif via computed property
+- Tail width via formule Windows (w+h)/20 avec caps
+- Texte avec bold/italic/alignment intégré (même resolveFont() que TextAnnotation)
+- Init accepte style optionnel (nil = defaultStyle)
+
+**Tests ajoutés :**
+- `testDefaultStyleIsBlueStroke` / `testDefaultStyleIsWhiteFill` / `testDefaultStyleIsBold`
+- `testDefaultStyleFontSize20` / `testDefaultStyleNoShadow`
+- `testCornerRadiusAdaptiveToSmallSide` / `testCornerRadiusCapsAt30`
+- `testCornerRadiusReducesForSmallBubble` / `testCornerRadiusZeroForTinyBubble`
+- `testTailWidthFormula` / `testTailWidthCappedToHalfSmallDimension` / `testTailWidthLargeBubble`
+- `testCustomStyleOverridesDefaults`
+
+**Résultat des tests :** ✅ 277 tests, 0 failures
