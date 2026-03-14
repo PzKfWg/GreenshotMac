@@ -8,14 +8,14 @@ final class AnnotationToolCapabilityTests: XCTestCase {
     // MARK: - supportsStrokeColor
 
     func testStrokeColorSupportedTools() {
-        let supported: [AnnotationTool] = [.rectangle, .ellipse, .line, .arrow, .text, .speechBubble]
+        let supported: [AnnotationTool] = [.rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel]
         for tool in supported {
             XCTAssertTrue(tool.supportsStrokeColor, "\(tool) should support stroke color")
         }
     }
 
     func testStrokeColorUnsupportedTools() {
-        let unsupported: [AnnotationTool] = [.select, .stepLabel, .pixelate, .highlight, .crop]
+        let unsupported: [AnnotationTool] = [.select, .pixelate, .highlight, .obfuscate, .crop]
         for tool in unsupported {
             XCTAssertFalse(tool.supportsStrokeColor, "\(tool) should not support stroke color")
         }
@@ -24,14 +24,14 @@ final class AnnotationToolCapabilityTests: XCTestCase {
     // MARK: - supportsFillColor
 
     func testFillColorSupportedTools() {
-        let supported: [AnnotationTool] = [.rectangle, .ellipse, .speechBubble]
+        let supported: [AnnotationTool] = [.rectangle, .ellipse, .text, .speechBubble, .stepLabel, .highlight]
         for tool in supported {
             XCTAssertTrue(tool.supportsFillColor, "\(tool) should support fill color")
         }
     }
 
     func testFillColorUnsupportedTools() {
-        let unsupported: [AnnotationTool] = [.select, .line, .arrow, .text, .stepLabel, .pixelate, .highlight, .crop]
+        let unsupported: [AnnotationTool] = [.select, .line, .arrow, .freehand, .pixelate, .obfuscate, .crop]
         for tool in unsupported {
             XCTAssertFalse(tool.supportsFillColor, "\(tool) should not support fill color")
         }
@@ -40,14 +40,14 @@ final class AnnotationToolCapabilityTests: XCTestCase {
     // MARK: - supportsStrokeWidth
 
     func testStrokeWidthSupportedTools() {
-        let supported: [AnnotationTool] = [.rectangle, .ellipse, .line, .arrow, .speechBubble]
+        let supported: [AnnotationTool] = [.rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble]
         for tool in supported {
             XCTAssertTrue(tool.supportsStrokeWidth, "\(tool) should support stroke width")
         }
     }
 
     func testStrokeWidthUnsupportedTools() {
-        let unsupported: [AnnotationTool] = [.select, .text, .stepLabel, .pixelate, .highlight, .crop]
+        let unsupported: [AnnotationTool] = [.select, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
         for tool in unsupported {
             XCTAssertFalse(tool.supportsStrokeWidth, "\(tool) should not support stroke width")
         }
@@ -60,9 +60,173 @@ final class AnnotationToolCapabilityTests: XCTestCase {
     }
 
     func testPixelSizeUnsupportedTools() {
-        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .arrow, .text, .speechBubble, .stepLabel, .highlight, .crop]
+        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel, .highlight, .obfuscate, .crop]
         for tool in unsupported {
             XCTAssertFalse(tool.supportsPixelSize, "\(tool) should not support pixel size")
+        }
+    }
+
+    // MARK: - supportsShadow
+
+    func testShadowSupportedTools() {
+        let supported: [AnnotationTool] = [.rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel]
+        for tool in supported {
+            XCTAssertTrue(tool.supportsShadow, "\(tool) should support shadow")
+        }
+    }
+
+    func testShadowUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsShadow, "\(tool) should not support shadow")
+        }
+    }
+
+    // MARK: - supportsDashPattern
+
+    func testDashPatternSupportedTools() {
+        let supported: [AnnotationTool] = [.rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble]
+        for tool in supported {
+            XCTAssertTrue(tool.supportsDashPattern, "\(tool) should support dash pattern")
+        }
+    }
+
+    func testDashPatternUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsDashPattern, "\(tool) should not support dash pattern")
+        }
+    }
+
+    // MARK: - supportsCornerRadius
+
+    func testCornerRadiusSupportedTools() {
+        XCTAssertTrue(AnnotationTool.rectangle.supportsCornerRadius)
+    }
+
+    func testCornerRadiusUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsCornerRadius, "\(tool) should not support corner radius")
+        }
+    }
+
+    // MARK: - supportsOpacity
+
+    func testOpacitySupportedTools() {
+        let supported: [AnnotationTool] = [.rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel, .highlight]
+        for tool in supported {
+            XCTAssertTrue(tool.supportsOpacity, "\(tool) should support opacity")
+        }
+    }
+
+    func testOpacityUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .pixelate, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsOpacity, "\(tool) should not support opacity")
+        }
+    }
+
+    // MARK: - supportsFontSize
+
+    func testFontSizeSupportedTools() {
+        let supported: [AnnotationTool] = [.text, .speechBubble]
+        for tool in supported {
+            XCTAssertTrue(tool.supportsFontSize, "\(tool) should support font size")
+        }
+    }
+
+    func testFontSizeUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .arrow, .freehand, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsFontSize, "\(tool) should not support font size")
+        }
+    }
+
+    // MARK: - supportsFontStyle
+
+    func testFontStyleSupportedTools() {
+        let supported: [AnnotationTool] = [.text, .speechBubble]
+        for tool in supported {
+            XCTAssertTrue(tool.supportsFontStyle, "\(tool) should support font style")
+        }
+    }
+
+    func testFontStyleUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .arrow, .freehand, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsFontStyle, "\(tool) should not support font style")
+        }
+    }
+
+    // MARK: - supportsTextAlignment
+
+    func testTextAlignmentSupportedTools() {
+        let supported: [AnnotationTool] = [.text, .speechBubble]
+        for tool in supported {
+            XCTAssertTrue(tool.supportsTextAlignment, "\(tool) should support text alignment")
+        }
+    }
+
+    func testTextAlignmentUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .arrow, .freehand, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsTextAlignment, "\(tool) should not support text alignment")
+        }
+    }
+
+    // MARK: - supportsUnderline
+
+    func testUnderlineSupportedTools() {
+        let supported: [AnnotationTool] = [.text, .speechBubble]
+        for tool in supported {
+            XCTAssertTrue(tool.supportsUnderline, "\(tool) should support underline")
+        }
+    }
+
+    func testUnderlineUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .arrow, .freehand, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsUnderline, "\(tool) should not support underline")
+        }
+    }
+
+    // MARK: - supportsArrowHeads
+
+    func testArrowHeadsSupportedTools() {
+        XCTAssertTrue(AnnotationTool.arrow.supportsArrowHeads)
+    }
+
+    func testArrowHeadsUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .freehand, .text, .speechBubble, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsArrowHeads, "\(tool) should not support arrow heads")
+        }
+    }
+
+    // MARK: - supportsBlurRadius
+
+    func testBlurRadiusSupportedTools() {
+        XCTAssertTrue(AnnotationTool.obfuscate.supportsBlurRadius)
+    }
+
+    func testBlurRadiusUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel, .pixelate, .highlight, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsBlurRadius, "\(tool) should not support blur radius")
+        }
+    }
+
+    // MARK: - supportsStartNumber
+
+    func testStartNumberSupportedTools() {
+        XCTAssertTrue(AnnotationTool.stepLabel.supportsStartNumber)
+    }
+
+    func testStartNumberUnsupportedTools() {
+        let unsupported: [AnnotationTool] = [.select, .rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .pixelate, .highlight, .obfuscate, .crop]
+        for tool in unsupported {
+            XCTAssertFalse(tool.supportsStartNumber, "\(tool) should not support start number")
         }
     }
 }
@@ -132,6 +296,7 @@ final class CanvasViewDelegateTests: XCTestCase {
         func canvasView(_ canvas: CanvasView, didChangeCurrentTool tool: AnnotationTool) {
             lastTool = tool
         }
+        func canvasView(_ canvas: CanvasView, mouseMovedTo point: CGPoint) {}
     }
 
     private func makeCanvas() -> CanvasView {

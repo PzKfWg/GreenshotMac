@@ -47,6 +47,7 @@ final class SpeechBubbleAnnotation: Annotation {
 
     func draw(in context: CGContext) {
         context.saveGState()
+        context.setAlpha(style.opacity)
         style.shadow.apply(to: context)
 
         let bubblePath = buildBubblePath()
@@ -70,12 +71,14 @@ final class SpeechBubbleAnnotation: Annotation {
         context.addPath(bubblePath)
         context.setStrokeColor(style.strokeColor.cgColor)
         context.setLineWidth(style.strokeWidth)
+        style.dashPattern.apply(to: context)
         context.strokePath()
 
         // Stroke tail (only the two outer edges, not the base that overlaps with bubble)
         context.addPath(tailPath)
         context.setStrokeColor(style.strokeColor.cgColor)
         context.setLineWidth(style.strokeWidth)
+        style.dashPattern.apply(to: context)
         context.strokePath()
 
         context.restoreGState()
@@ -117,11 +120,14 @@ final class SpeechBubbleAnnotation: Annotation {
         case .right:  paragraphStyle.alignment = .right
         }
 
-        let attrs: [NSAttributedString.Key: Any] = [
+        var attrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: style.strokeColor,
             .paragraphStyle: paragraphStyle
         ]
+        if style.fontUnderline {
+            attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        }
         let attrString = NSAttributedString(string: text, attributes: attrs)
         let framesetter = CTFramesetterCreateWithAttributedString(attrString)
 
@@ -194,12 +200,42 @@ final class SpeechBubbleAnnotation: Annotation {
         return CGPath(roundedRect: bounds, cornerWidth: cr, cornerHeight: cr, transform: nil)
     }
 
+    /// Determines the nearest edge anchor points for the tail base.
+    /// Picks the edge (top/bottom/left/right) nearest to the tail tip.
+    private func tailBasePoints() -> (CGPoint, CGPoint) {
+        let tw = tailWidth
+        let tp = tailPoint
+
+        // Determine which edge the tail is closest to
+        let distTop = abs(tp.y - bounds.minY)
+        let distBottom = abs(tp.y - bounds.maxY)
+        let distLeft = abs(tp.x - bounds.minX)
+        let distRight = abs(tp.x - bounds.maxX)
+
+        let minDist = min(distTop, distBottom, distLeft, distRight)
+
+        if minDist == distBottom {
+            let center = CGPoint(x: bounds.midX, y: bounds.maxY)
+            return (CGPoint(x: center.x - tw / 2, y: center.y),
+                    CGPoint(x: center.x + tw / 2, y: center.y))
+        } else if minDist == distTop {
+            let center = CGPoint(x: bounds.midX, y: bounds.minY)
+            return (CGPoint(x: center.x - tw / 2, y: center.y),
+                    CGPoint(x: center.x + tw / 2, y: center.y))
+        } else if minDist == distLeft {
+            let center = CGPoint(x: bounds.minX, y: bounds.midY)
+            return (CGPoint(x: center.x, y: center.y - tw / 2),
+                    CGPoint(x: center.x, y: center.y + tw / 2))
+        } else {
+            let center = CGPoint(x: bounds.maxX, y: bounds.midY)
+            return (CGPoint(x: center.x, y: center.y - tw / 2),
+                    CGPoint(x: center.x, y: center.y + tw / 2))
+        }
+    }
+
     private func buildTailPath() -> CGPath {
         let path = CGMutablePath()
-        let tw = tailWidth
-        let bottomCenter = CGPoint(x: bounds.midX, y: bounds.maxY)
-        let tailLeft = CGPoint(x: bottomCenter.x - tw / 2, y: bottomCenter.y)
-        let tailRight = CGPoint(x: bottomCenter.x + tw / 2, y: bottomCenter.y)
+        let (tailLeft, tailRight) = tailBasePoints()
 
         path.move(to: tailLeft)
         path.addLine(to: tailPoint)
@@ -210,10 +246,7 @@ final class SpeechBubbleAnnotation: Annotation {
     }
 
     private func isNearTail(point: CGPoint) -> Bool {
-        let tw = tailWidth
-        let bottomCenter = CGPoint(x: bounds.midX, y: bounds.maxY)
-        let tailLeft = CGPoint(x: bottomCenter.x - tw / 2, y: bottomCenter.y)
-        let tailRight = CGPoint(x: bottomCenter.x + tw / 2, y: bottomCenter.y)
+        let (tailLeft, tailRight) = tailBasePoints()
 
         return pointInTriangle(point, v1: tailLeft, v2: tailPoint, v3: tailRight)
     }

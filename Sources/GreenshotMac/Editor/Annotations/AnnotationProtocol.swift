@@ -11,11 +11,13 @@ enum AnnotationTool: String, CaseIterable, Sendable {
     case stepLabel
     case pixelate
     case highlight
+    case freehand
+    case obfuscate
     case crop
 
     var supportsStrokeColor: Bool {
         switch self {
-        case .rectangle, .ellipse, .line, .arrow, .text, .speechBubble:
+        case .rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel:
             return true
         default:
             return false
@@ -24,7 +26,7 @@ enum AnnotationTool: String, CaseIterable, Sendable {
 
     var supportsFillColor: Bool {
         switch self {
-        case .rectangle, .ellipse, .speechBubble:
+        case .rectangle, .ellipse, .text, .speechBubble, .stepLabel, .highlight:
             return true
         default:
             return false
@@ -33,7 +35,7 @@ enum AnnotationTool: String, CaseIterable, Sendable {
 
     var supportsStrokeWidth: Bool {
         switch self {
-        case .rectangle, .ellipse, .line, .arrow, .speechBubble:
+        case .rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble:
             return true
         default:
             return false
@@ -42,19 +44,85 @@ enum AnnotationTool: String, CaseIterable, Sendable {
 
     var supportsShadow: Bool {
         switch self {
-        case .rectangle, .ellipse, .line, .arrow, .text, .speechBubble, .stepLabel:
+        case .rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel:
             return true
         default:
             return false
         }
     }
 
+    var supportsFontSize: Bool {
+        switch self {
+        case .text, .speechBubble:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var supportsFontStyle: Bool {
+        switch self {
+        case .text, .speechBubble:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var supportsArrowHeads: Bool {
+        self == .arrow
+    }
+
     var supportsPixelSize: Bool {
         self == .pixelate
     }
 
+    var supportsBlurRadius: Bool {
+        self == .obfuscate
+    }
+
     var supportsStartNumber: Bool {
         self == .stepLabel
+    }
+
+    var supportsDashPattern: Bool {
+        switch self {
+        case .rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var supportsCornerRadius: Bool {
+        self == .rectangle
+    }
+
+    var supportsOpacity: Bool {
+        switch self {
+        case .rectangle, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel, .highlight:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var supportsTextAlignment: Bool {
+        switch self {
+        case .text, .speechBubble:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var supportsUnderline: Bool {
+        switch self {
+        case .text, .speechBubble:
+            return true
+        default:
+            return false
+        }
     }
 }
 
@@ -104,6 +172,29 @@ func distanceFromPointToLineSegment(point: CGPoint, lineStart: CGPoint, lineEnd:
     return sqrt(distX * distX + distY * distY)
 }
 
+enum DashPattern: String, CaseIterable, Sendable, Equatable {
+    case solid
+    case dashed
+    case dotted
+
+    var lengths: [CGFloat] {
+        switch self {
+        case .solid: return []
+        case .dashed: return [8, 4]
+        case .dotted: return [2, 4]
+        }
+    }
+
+    func apply(to context: CGContext) {
+        let l = lengths
+        if l.isEmpty {
+            context.setLineDash(phase: 0, lengths: [])
+        } else {
+            context.setLineDash(phase: 0, lengths: l)
+        }
+    }
+}
+
 enum TextHorizontalAlignment: Sendable, Equatable {
     case left
     case center
@@ -127,6 +218,9 @@ struct AnnotationStyle: Equatable {
     var textHorizontalAlignment: TextHorizontalAlignment = .center
     var textVerticalAlignment: TextVerticalAlignment = .center
     var shadow: ShadowStyle = .default
+    var dashPattern: DashPattern = .solid
+    var opacity: CGFloat = 1.0
+    var fontUnderline: Bool = false
 }
 
 @MainActor
@@ -198,8 +292,10 @@ func toolType(for annotation: Annotation) -> AnnotationTool {
     case is TextAnnotation: return .text
     case is SpeechBubbleAnnotation: return .speechBubble
     case is StepLabelAnnotation: return .stepLabel
+    case is FreehandAnnotation: return .freehand
     case is PixelateFilter: return .pixelate
     case is HighlightFilter: return .highlight
+    case is ObfuscateFilter: return .obfuscate
     default: return .select
     }
 }
