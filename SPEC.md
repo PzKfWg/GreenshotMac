@@ -486,6 +486,8 @@ Rectangle semi-transparent coloré, comme un marqueur jaune.
 **Couleur par défaut :** `NSColor.yellow` à 40% opacité.
 **Shadow :** Toujours désactivé (`ShadowStyle.none`), même si le style courant a shadow activé.
 
+**Note sur le blend mode :** Greenshot Windows utilise un blend par minimum composante (`Math.Min(highlightColor.R, color.R)` etc.) qui crée un effet assombrissant sur les pixels de l'image. GreenshotMac utilise un overlay semi-transparent (alpha blending) qui est l'idiome macOS standard et produit un effet visuellement similaire. La différence est acceptable car le rendu semi-transparent est plus performant et s'intègre mieux avec Core Graphics.
+
 **Cas de test :**
 - CT-5.2.1 : Cliquer-glisser avec l'outil Highlight crée un rectangle jaune semi-transparent.
 - CT-5.2.2 : Le highlight n'a PAS de shadow, même si shadow est activé dans le style.

@@ -9,8 +9,8 @@
 - [x] Ellipse
 - [x] Line
 - [x] StepLabel
-- [ ] Pixelate
-- [ ] Highlight
+- [x] Pixelate
+- [x] Highlight
 - [ ] Crop
 - [ ] Shadow
 
@@ -185,5 +185,29 @@
 
 **Tests modifiés :**
 - `testDefaultFillColorIsRedWhenClear` → `testDefaultFillColorIsDarkRed`
+
+**Résultat des tests :** ✅ 284 tests, 0 failures
+
+### Itération 6 — Pixelate + Highlight
+
+**Fichiers C# lus :**
+- `Drawing/Filters/PixelizationFilter.cs`
+- `Drawing/Filters/HighlightFilter.cs`
+- `Drawing/Filters/AbstractFilter.cs`
+
+**Écarts trouvés :**
+
+| Aspect | Greenshot Windows | GreenshotMac | Statut |
+|--------|------------------|--------------|--------|
+| Pixelate algorithm | Manual pixel averaging per block | CIPixellate Core Image filter | Aligné (même résultat) |
+| Pixelate default size | 5px | 5px | Aligné |
+| Pixelate edge handling | Adapts block size to bounds | Adapts block size to bounds | Aligné |
+| Highlight blend | Math.Min per RGB component (darkening) | Alpha overlay semi-transparent | Acceptable adaptation macOS |
+| Highlight default color | Yellow | Yellow at 40% alpha | Aligné conceptuellement |
+| Highlight shadow | false | false (toujours .none) | Aligné |
+
+**Corrections apportées :**
+- Aucune modification de code — les deux filtres sont bien alignés
+- Mise à jour SPEC.md §5.2 pour documenter la différence de blend mode
 
 **Résultat des tests :** ✅ 284 tests, 0 failures
