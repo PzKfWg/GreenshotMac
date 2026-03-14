@@ -22,7 +22,17 @@ final class StepLabelAnnotation: Annotation {
         nextStepNumber
     }
 
-    init(center: CGPoint, style: AnnotationStyle = AnnotationStyle()) {
+    /// Default style for step labels, aligned with Greenshot Windows:
+    /// DarkRed fill, white text, no border (lineThickness=0), no shadow
+    static var defaultStyle: AnnotationStyle {
+        var s = AnnotationStyle()
+        s.fillColor = NSColor(red: 0.55, green: 0, blue: 0, alpha: 1) // DarkRed
+        s.strokeColor = .white // number color
+        s.shadow = .none
+        return s
+    }
+
+    init(center: CGPoint, style: AnnotationStyle? = nil) {
         let size: CGFloat = 30
         self.bounds = CGRect(
             x: center.x - size / 2,
@@ -30,7 +40,7 @@ final class StepLabelAnnotation: Annotation {
             width: size,
             height: size
         )
-        self.style = style
+        self.style = style ?? StepLabelAnnotation.defaultStyle
         self.stepNumber = Self.nextStepNumber
         Self.nextStepNumber += 1
     }
@@ -51,10 +61,12 @@ final class StepLabelAnnotation: Annotation {
 
         context.restoreGState()
 
-        // Draw the number centered in the circle
+        // Draw the number centered in the circle with auto-scaled font
+        // Matching Greenshot Windows: font size adapts to circle diameter
         let numStr = "\(stepNumber)" as NSString
+        let fontSize = autoScaledFontSize(for: numStr as String)
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.boldSystemFont(ofSize: style.fontSize),
+            .font: NSFont.boldSystemFont(ofSize: fontSize),
             .foregroundColor: NSColor.white
         ]
         let size = numStr.size(withAttributes: attrs)
@@ -80,5 +92,27 @@ final class StepLabelAnnotation: Annotation {
     func copy() -> Annotation {
         let c = StepLabelAnnotation(bounds: bounds, style: style, stepNumber: stepNumber)
         return c
+    }
+
+    // MARK: - Font auto-scaling
+
+    /// Calculates the font size to fit the text inside the circle,
+    /// matching Greenshot Windows StepLabelContainer algorithm.
+    func autoScaledFontSize(for text: String) -> CGFloat {
+        let diameter = min(bounds.width, bounds.height)
+        guard diameter > 0 else { return style.fontSize }
+
+        // Start with diameter as initial size, then scale down to fit
+        let initialSize = diameter
+        let testFont = NSFont.boldSystemFont(ofSize: initialSize)
+        let testStr = text as NSString
+        let textSize = testStr.size(withAttributes: [.font: testFont])
+
+        guard textSize.width > 0 else { return initialSize }
+
+        // Scale factor: fit text within ~70% of circle diameter
+        // (0.7 matches Greenshot Windows optimization factor)
+        let scaleFactor = (textSize.height / textSize.width) * 0.7
+        return max(8, initialSize * scaleFactor)
     }
 }

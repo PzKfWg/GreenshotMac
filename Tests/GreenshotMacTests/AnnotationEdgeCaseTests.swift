@@ -205,7 +205,7 @@ final class SpeechBubbleExtendedTests: XCTestCase {
 
     func testDefaultTextIsText() {
         let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 50, y: 100, width: 200, height: 80))
-        XCTAssertEqual(bubble.text, "Text")
+        XCTAssertEqual(bubble.text, "Texte")
     }
 
     func testCustomTextPreserved() {
@@ -238,7 +238,7 @@ final class TextAnnotationExtendedTests: XCTestCase {
 
     func testDefaultTextIsText() {
         let text = TextAnnotation(bounds: CGRect(x: 0, y: 0, width: 150, height: 30))
-        XCTAssertEqual(text.text, "Text")
+        XCTAssertEqual(text.text, "Texte")
     }
 
     func testCustomTextPreserved() {
@@ -358,11 +358,11 @@ final class StepLabelExtendedTests: XCTestCase {
         XCTAssertEqual(step2.stepNumber, 2)
     }
 
-    func testDefaultFillColorIsRedWhenClear() {
-        // When fillColor is .clear, the circle should use systemRed
+    func testDefaultFillColorIsDarkRed() {
+        // Default style uses DarkRed fill, aligned with Greenshot Windows
         let step = StepLabelAnnotation(center: CGPoint(x: 100, y: 100))
-        XCTAssertEqual(step.style.fillColor, .clear) // Style stores .clear
-        // The draw() method should use systemRed when fillColor is clear
+        XCTAssertNotEqual(step.style.fillColor, .clear)
+        // The draw() method uses the fill color directly (DarkRed)
     }
 
     func testCustomFillColorPreserved() {

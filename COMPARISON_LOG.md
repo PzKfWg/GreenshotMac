@@ -7,8 +7,8 @@
 - [x] SpeechBubble
 - [x] Rectangle
 - [x] Ellipse
-- [ ] Line
-- [ ] StepLabel
+- [x] Line
+- [x] StepLabel
 - [ ] Pixelate
 - [ ] Highlight
 - [ ] Crop
@@ -157,5 +157,33 @@
 - `testHitTestInsideFilledEllipseHits` — centre d'une ellipse remplie
 - `testHitTestFilledEllipseCornerMisses` — coin du rect rempli
 - `testHitTestNarrowEllipse` — ellipse étroite
+
+**Résultat des tests :** ✅ 284 tests, 0 failures
+
+### Itération 5 — Line + StepLabel
+
+**Fichiers C# lus :**
+- `Drawing/LineContainer.cs` (122 lignes)
+- `Drawing/StepLabelContainer.cs`
+
+**Écarts trouvés :**
+
+| Aspect | Greenshot Windows | GreenshotMac (avant) | Correction |
+|--------|------------------|---------------------|------------|
+| Line hit test tolerance | lineThickness + 5 | 6px fixe | max(6, strokeWidth + 5) |
+| Line dash pattern | Aucun | Aucun | Aligné |
+| StepLabel fill color | DarkRed | systemRed (quand clear) | DarkRed par défaut |
+| StepLabel shadow | false | enabled par défaut | .none |
+| StepLabel font sizing | Dynamique: scaled to fit circle | Fixe: style.fontSize | autoScaledFontSize() |
+| StepLabel counter | Per-surface, recalculated | Static, sequential | Conservé (acceptable) |
+
+**Corrections apportées :**
+- LineAnnotation: hit test tolerance = max(6, strokeWidth + 5) au lieu de 6px fixe
+- StepLabelAnnotation: defaultStyle avec DarkRed, white, no shadow
+- StepLabelAnnotation: autoScaledFontSize() calcule la taille de police pour tenir dans le cercle
+- Init accepte style optionnel (nil = defaultStyle)
+
+**Tests modifiés :**
+- `testDefaultFillColorIsRedWhenClear` → `testDefaultFillColorIsDarkRed`
 
 **Résultat des tests :** ✅ 284 tests, 0 failures

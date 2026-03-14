@@ -49,8 +49,10 @@ final class LineAnnotation: Annotation {
         drawSelectionHandles(in: context)
     }
 
+    /// Hit test with tolerance that scales with stroke width,
+    /// matching Greenshot Windows LineContainer (lineThickness + 5).
     func hitTest(point: CGPoint) -> Bool {
-        let tolerance: CGFloat = 6.0
+        let tolerance = max(6.0, style.strokeWidth + 5)
         return distanceFromPointToLineSegment(point: point, lineStart: startPoint, lineEnd: endPoint) <= tolerance
     }
 
