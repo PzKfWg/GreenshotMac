@@ -319,13 +319,28 @@ Boîte de texte avec un texte par défaut "Texte".
 
 **Rendu :** Le texte est dessiné avec CoreText (CTFramesetter + CTFrameDraw) en utilisant `style.fontName`, `style.fontSize`, et `style.strokeColor`.
 
+**Gras/Italique :** Les propriétés `style.fontBold` et `style.fontItalic` (booléens, défaut `false`) contrôlent le style du texte. La résolution de police utilise `NSFontManager.convert(_:toHaveTrait:)` pour appliquer les traits bold/italic, avec fallback sur la police système si la police demandée n'existe pas. Aligné avec les champs `FONT_BOLD` et `FONT_ITALIC` de Greenshot Windows.
+
+**Alignement horizontal :** `style.textHorizontalAlignment` (`.left`, `.center`, `.right`), défaut `.center`. Appliqué via `NSParagraphStyle.alignment` dans les attributs CoreText. Aligné avec `TEXT_HORIZONTAL_ALIGNMENT` de Greenshot Windows (StringAlignment.Near/Center/Far).
+
+**Alignement vertical :** `style.textVerticalAlignment` (`.top`, `.center`, `.bottom`), défaut `.center`. Calculé en mesurant la hauteur du texte via `CTFramesetterSuggestFrameSizeWithConstraints` et en décalant le rect de dessin. Aligné avec `TEXT_VERTICAL_ALIGNMENT` de Greenshot Windows.
+
+**Édition inline :** À FAIRE — Greenshot Windows utilise un TextBox overlay avec double-click, ESC/Enter pour fermer, support IME, et synchronisation bidirectionnelle via data binding.
+
 **Cas de test :**
 - CT-3.5.1 : Cliquer avec l'outil Texte crée une boîte avec le texte "Texte".
 - CT-3.5.2 : La taille initiale est 150x30 pixels.
 - CT-3.5.3 : Le texte utilise la police et la taille du style courant.
 - CT-3.5.4 : La couleur du texte est `strokeColor`.
-- CT-3.5.5 : La copie (`copy()`) préserve le texte.
+- CT-3.5.5 : La copie (`copy()`) préserve le texte, le gras/italique et l'alignement.
 - CT-3.5.6 : Shadow fonctionne sur le texte.
+- CT-3.5.7 : `fontBold = true` produit une police avec le trait bold.
+- CT-3.5.8 : `fontItalic = true` produit une police avec le trait italic.
+- CT-3.5.9 : `fontBold = true` et `fontItalic = true` combinés produisent bold+italic.
+- CT-3.5.10 : Police inexistante → fallback sur la police système.
+- CT-3.5.11 : Alignement horizontal/vertical par défaut = center/center.
+- CT-3.5.12 : Les 3 valeurs d'alignement horizontal (left/center/right) sont supportées.
+- CT-3.5.13 : Les 3 valeurs d'alignement vertical (top/center/bottom) sont supportées.
 
 ### 3.6 Bulle de dialogue (Speech Bubble)
 

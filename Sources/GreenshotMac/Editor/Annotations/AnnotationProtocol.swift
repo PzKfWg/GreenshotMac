@@ -104,12 +104,28 @@ func distanceFromPointToLineSegment(point: CGPoint, lineStart: CGPoint, lineEnd:
     return sqrt(distX * distX + distY * distY)
 }
 
+enum TextHorizontalAlignment: Sendable, Equatable {
+    case left
+    case center
+    case right
+}
+
+enum TextVerticalAlignment: Sendable, Equatable {
+    case top
+    case center
+    case bottom
+}
+
 struct AnnotationStyle: Equatable {
     var strokeColor: NSColor = .systemRed
     var fillColor: NSColor = .clear
     var strokeWidth: CGFloat = 2.0
     var fontSize: CGFloat = 14.0
     var fontName: String = "Helvetica"
+    var fontBold: Bool = false
+    var fontItalic: Bool = false
+    var textHorizontalAlignment: TextHorizontalAlignment = .center
+    var textVerticalAlignment: TextVerticalAlignment = .center
     var shadow: ShadowStyle = .default
 }
 

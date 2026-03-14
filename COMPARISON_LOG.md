@@ -3,7 +3,7 @@
 ## Annotations à comparer
 
 - [x] Arrow
-- [ ] Text
+- [x] Text
 - [ ] SpeechBubble
 - [ ] Rectangle
 - [ ] Ellipse
@@ -53,3 +53,39 @@
 - `testHitTestToleranceScalesWithStrokeWidth` — tolérance dynamique
 
 **Résultat des tests :** ✅ 253 tests, 0 failures
+
+### Itération 2 — Text
+
+**Fichiers C# lus :**
+- `Drawing/TextContainer.cs` — classe principale
+- `Drawing/RectangleContainer.cs` — classe parent
+
+**Écarts trouvés :**
+
+| Aspect | Greenshot Windows | GreenshotMac (avant) | Correction |
+|--------|------------------|---------------------|------------|
+| Bold/Italic | `FONT_BOLD`, `FONT_ITALIC` fields | Pas de support | Ajout `fontBold`/`fontItalic` dans AnnotationStyle |
+| Font resolution | CreateFont() avec fallback par style disponible | `NSFont(name:size:)` simple | `resolveFont()` via NSFontManager.convert toHaveTrait |
+| Horizontal alignment | StringAlignment Near/Center/Far, default Center | Aucun | Ajout `textHorizontalAlignment` (.left/.center/.right) |
+| Vertical alignment | StringAlignment Near/Center/Far, default Center | Aucun | Ajout `textVerticalAlignment` (.top/.center/.bottom) |
+| Default font size | 11f (pixels) | 14.0 | Conservé 14.0 (meilleur rendu Retina) |
+| Inline editing | TextBox overlay, double-click, ESC/Enter | Absent | À FAIRE (trop complexe pour une itération) |
+| FitToText | Auto-resize bounds to text content | Absent | À FAIRE |
+
+**Corrections apportées :**
+- Ajout enums `TextHorizontalAlignment` et `TextVerticalAlignment` dans AnnotationProtocol.swift
+- Ajout `fontBold`, `fontItalic`, `textHorizontalAlignment`, `textVerticalAlignment` dans AnnotationStyle
+- Nouvelle méthode `resolveFont()` dans TextAnnotation avec NSFontManager trait conversion
+- Rendu vertical alignment via CTFramesetterSuggestFrameSizeWithConstraints pour mesurer la hauteur
+- Horizontal alignment via NSParagraphStyle.alignment dans les attributs CoreText
+
+**Tests ajoutés :**
+- `testDefaultStyleHasNoBoldOrItalic`
+- `testResolveFontWithBold` / `testResolveFontWithItalic` / `testResolveFontWithBoldAndItalic`
+- `testResolveFontFallsBackToSystemFont`
+- `testDefaultAlignmentIsCenterCenter`
+- `testHorizontalAlignmentLeft` / `testHorizontalAlignmentRight`
+- `testVerticalAlignmentTop` / `testVerticalAlignmentBottom`
+- `testCopyPreservesAlignmentAndFontTraits`
+
+**Résultat des tests :** ✅ 264 tests, 0 failures

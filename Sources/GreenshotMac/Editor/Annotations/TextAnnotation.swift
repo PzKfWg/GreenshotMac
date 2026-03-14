@@ -6,9 +6,9 @@ final class TextAnnotation: Annotation {
     var bounds: CGRect
     var style: AnnotationStyle
     var isSelected: Bool = false
-    var text: String = "Text"
+    var text: String = "Texte"
 
-    init(bounds: CGRect, style: AnnotationStyle = AnnotationStyle(), text: String = "Text") {
+    init(bounds: CGRect, style: AnnotationStyle = AnnotationStyle(), text: String = "Texte") {
         self.bounds = bounds
         self.style = style
         self.text = text
@@ -18,10 +18,18 @@ final class TextAnnotation: Annotation {
         context.saveGState()
         style.shadow.apply(to: context)
 
+        let font = resolveFont()
+        let paragraphStyle = NSMutableParagraphStyle()
+        switch style.textHorizontalAlignment {
+        case .left:   paragraphStyle.alignment = .left
+        case .center: paragraphStyle.alignment = .center
+        case .right:  paragraphStyle.alignment = .right
+        }
+
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont(name: style.fontName, size: style.fontSize)
-                ?? NSFont.systemFont(ofSize: style.fontSize),
-            .foregroundColor: style.strokeColor
+            .font: font,
+            .foregroundColor: style.strokeColor,
+            .paragraphStyle: paragraphStyle
         ]
         let attrString = NSAttributedString(string: text, attributes: attrs)
         let framesetter = CTFramesetterCreateWithAttributedString(attrString)
@@ -31,7 +39,31 @@ final class TextAnnotation: Annotation {
         context.scaleBy(x: 1.0, y: -1.0)
 
         let localRect = CGRect(origin: .zero, size: bounds.size)
-        let path = CGPath(rect: localRect, transform: nil)
+
+        // Vertical alignment: calculate text height and offset
+        let textSize = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            CFRangeMake(0, 0),
+            nil,
+            CGSize(width: bounds.width, height: CGFloat.greatestFiniteMagnitude),
+            nil
+        )
+
+        var drawRect = localRect
+        switch style.textVerticalAlignment {
+        case .top:
+            break // default CoreText behavior (top-aligned in flipped coords)
+        case .center:
+            let yOffset = max(0, (localRect.height - textSize.height) / 2)
+            drawRect.origin.y = yOffset
+            drawRect.size.height = localRect.height - yOffset
+        case .bottom:
+            let yOffset = max(0, localRect.height - textSize.height)
+            drawRect.origin.y = yOffset
+            drawRect.size.height = localRect.height - yOffset
+        }
+
+        let path = CGPath(rect: drawRect, transform: nil)
         let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), path, nil)
         CTFrameDraw(frame, context)
 
@@ -42,5 +74,36 @@ final class TextAnnotation: Annotation {
 
     func copy() -> Annotation {
         TextAnnotation(bounds: bounds, style: style, text: text)
+    }
+
+    // MARK: - Font resolution
+
+    /// Resolves the font with bold/italic traits applied, matching Greenshot Windows behavior.
+    func resolveFont() -> NSFont {
+        let baseFontSize = style.fontSize
+        let baseFontName = style.fontName
+
+        var traits: NSFontTraitMask = []
+        if style.fontBold { traits.insert(.boldFontMask) }
+        if style.fontItalic { traits.insert(.italicFontMask) }
+
+        // Try to get the font with requested traits
+        if let baseFont = NSFont(name: baseFontName, size: baseFontSize) {
+            if !traits.isEmpty {
+                if let converted = NSFontManager.shared.convert(baseFont, toHaveTrait: traits) as NSFont? {
+                    return converted
+                }
+            }
+            return baseFont
+        }
+
+        // Fallback to system font with traits
+        let systemFont = NSFont.systemFont(ofSize: baseFontSize)
+        if !traits.isEmpty {
+            if let converted = NSFontManager.shared.convert(systemFont, toHaveTrait: traits) as NSFont? {
+                return converted
+            }
+        }
+        return systemFont
     }
 }
