@@ -11,8 +11,8 @@
 - [x] StepLabel
 - [x] Pixelate
 - [x] Highlight
-- [ ] Crop
-- [ ] Shadow
+- [x] Crop
+- [x] Shadow
 
 ---
 
@@ -209,5 +209,28 @@
 **Corrections apportées :**
 - Aucune modification de code — les deux filtres sont bien alignés
 - Mise à jour SPEC.md §5.2 pour documenter la différence de blend mode
+
+**Résultat des tests :** ✅ 284 tests, 0 failures
+
+### Itération 7 — Crop + Shadow
+
+**Fichiers C# lus :**
+- `Drawing/CropContainer.cs` (277 lignes)
+- `Drawing/DrawableContainer.cs` (shadow bounds logic)
+
+**Écarts trouvés :**
+
+| Aspect | Greenshot Windows | GreenshotMac | Statut |
+|--------|------------------|--------------|--------|
+| Crop overlay | Darkened area OUTSIDE selection (ARGB 100,150,150,100) | Blue semi-transparent rectangle | Différent UX mais fonctionnel |
+| Crop modes | Default, AutoCrop, Horizontal, Vertical | Default seulement | Modes avancés manquants |
+| CropTool.applyCrop | Crop applied on confirm | Référencé mais non implémenté | À FAIRE (feature manquante) |
+| Shadow | Boolean toggle, 10px offset, 5-step progressive alpha | ShadowStyle configurable (offset, blur, color) | Mac plus flexible |
+| Shadow defaults | enabled=true, fixed 10px offset | enabled=true, offset(2,-2), blur 4, black 50% | Acceptable |
+
+**Corrections apportées :**
+- Aucune modification de code
+- Shadow: ShadowStyle macOS est plus flexible que le boolean Windows — déjà aligné conceptuellement
+- Crop: le rectangle de sélection fonctionne, mais `CropTool.applyCrop()` n'est pas encore implémenté (feature gap, pas un alignment gap)
 
 **Résultat des tests :** ✅ 284 tests, 0 failures
