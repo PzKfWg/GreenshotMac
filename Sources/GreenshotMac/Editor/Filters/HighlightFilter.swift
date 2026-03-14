@@ -23,6 +23,7 @@ final class HighlightFilter: Annotation {
 
     func draw(in context: CGContext) {
         context.saveGState()
+        context.setAlpha(style.opacity)
 
         let rect = bounds.standardized
         guard rect.width > 0, rect.height > 0 else {
@@ -30,10 +31,19 @@ final class HighlightFilter: Annotation {
             return
         }
 
-        // No shadow for highlights — it would look wrong
-        // Draw semi-transparent colored rectangle (highlighter effect)
+        // Use multiply blend mode for realistic highlighter effect
+        // Matching Greenshot Windows behavior: colored overlay that darkens underlying content
+        context.setBlendMode(.multiply)
         context.setFillColor(style.fillColor.cgColor)
         context.fill(rect)
+        context.setBlendMode(.normal)
+
+        // Optional stroke/outline
+        if style.strokeColor != .clear && style.strokeWidth > 0 {
+            context.setStrokeColor(style.strokeColor.cgColor)
+            context.setLineWidth(style.strokeWidth)
+            context.stroke(rect)
+        }
 
         context.restoreGState()
 
