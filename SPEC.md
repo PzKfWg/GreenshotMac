@@ -268,10 +268,21 @@ Dessine un rectangle avec contour (`strokeColor`, `strokeWidth`) et optionnellem
 
 Identique au rectangle mais dessine une ellipse inscrite dans les bounds.
 
+**Hit test (aligné avec Greenshot Windows EllipseContainer.Contains) :**
+- Utilise l'équation de l'ellipse `x²/a² + y²/b² ≤ 1` au lieu d'un test rectangulaire.
+- **Remplie :** tout point à l'intérieur de l'ellipse (+ tolérance) est détecté.
+- **Non remplie :** seuls les points proches du contour (entre ellipse interne et externe avec tolérance) sont détectés. Le centre de l'ellipse ne trigger pas le hit test.
+- Tolérance = `max(4, strokeWidth + 4)` pixels.
+
 **Cas de test :**
 - CT-3.2.1 : L'ellipse est inscrite dans le rectangle de bounds.
 - CT-3.2.2 : Avec un bounds carré, l'ellipse est un cercle.
 - CT-3.2.3 : Shadow fonctionne sur l'ellipse.
+- CT-3.2.4 : Le hit test sur le contour de l'ellipse détecte un clic.
+- CT-3.2.5 : Le hit test au centre d'une ellipse non remplie ne détecte pas.
+- CT-3.2.6 : Le hit test au centre d'une ellipse remplie détecte.
+- CT-3.2.7 : Le hit test au coin du bounding rect d'une ellipse remplie ne détecte pas (coin extérieur à l'ellipse).
+- CT-3.2.8 : Le hit test fonctionne sur une ellipse très étroite.
 
 ### 3.3 Ligne
 

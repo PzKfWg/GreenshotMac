@@ -5,8 +5,8 @@
 - [x] Arrow
 - [x] Text
 - [x] SpeechBubble
-- [ ] Rectangle
-- [ ] Ellipse
+- [x] Rectangle
+- [x] Ellipse
 - [ ] Line
 - [ ] StepLabel
 - [ ] Pixelate
@@ -126,3 +126,36 @@
 - `testCustomStyleOverridesDefaults`
 
 **Résultat des tests :** ✅ 277 tests, 0 failures
+
+### Itération 4 — Rectangle + Ellipse
+
+**Fichiers C# lus :**
+- `Drawing/RectangleContainer.cs` (169 lignes)
+- `Drawing/EllipseContainer.cs` (178 lignes)
+
+**Écarts trouvés :**
+
+| Aspect | Greenshot Windows | GreenshotMac (avant) | Correction |
+|--------|------------------|---------------------|------------|
+| Rectangle | Aligné | Aligné | Aucune correction nécessaire |
+| Ellipse hit test | Equation ellipse x²/a² + y²/b² | bounds.insetBy.contains() rectangulaire | Équation ellipse implémentée |
+| Ellipse unfilled hit | Outline visible via GraphicsPath | Pas de distinction filled/unfilled | Ring (outer-inner ellipse) pour unfilled |
+| Hit test tolerance | +10px sur line thickness | +4px sur bounds | max(4, strokeWidth + 4) |
+
+**Corrections apportées :**
+- EllipseAnnotation: override hitTest avec équation de l'ellipse
+- Unfilled: teste que le point est entre l'ellipse intérieure et extérieure (anneau)
+- Filled: teste que le point est dans l'ellipse élargie par la tolérance
+- Rectangle: déjà aligné, pas de modification
+
+**Tests ajoutés/modifiés :**
+- `testHitTestOnOutlineHits` — point sur le contour
+- `testHitTestCenterOfUnfilledMisses` — centre de l'ellipse non remplie
+- `testHitTestAtCornerOfBoundsForUnfilledEllipse` — coin du rect englobant
+- `testHitTestOnEllipseOutline` — contour exact
+- `testHitTestInsideUnfilledEllipseMisses` — centre d'une grande ellipse non remplie
+- `testHitTestInsideFilledEllipseHits` — centre d'une ellipse remplie
+- `testHitTestFilledEllipseCornerMisses` — coin du rect rempli
+- `testHitTestNarrowEllipse` — ellipse étroite
+
+**Résultat des tests :** ✅ 284 tests, 0 failures
