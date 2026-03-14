@@ -10,6 +10,7 @@ final class PixelateFilterTests: XCTestCase {
         XCTAssertEqual(filter.bounds, CGRect(x: 10, y: 20, width: 100, height: 50))
         XCTAssertFalse(filter.isSelected)
         XCTAssertEqual(filter.style.strokeWidth, 2.0)
+        XCTAssertEqual(filter.pixelSize, 5)
     }
 
     func testHitTestInsideBounds() {
@@ -30,11 +31,36 @@ final class PixelateFilterTests: XCTestCase {
 
     func testCopyCreatesIndependentAnnotation() {
         let original = PixelateFilter(bounds: CGRect(x: 10, y: 20, width: 100, height: 50))
-        let copy = original.copy()
+        original.pixelSize = 12
+        let copy = original.copy() as! PixelateFilter
         XCTAssertNotEqual(copy.id, original.id)
         XCTAssertEqual(copy.bounds, original.bounds)
+        XCTAssertEqual(copy.pixelSize, 12)
         copy.bounds = CGRect(x: 0, y: 0, width: 50, height: 50)
         XCTAssertNotEqual(original.bounds, copy.bounds)
+    }
+
+    func testDrawWithoutBackgroundImageDoesNotCrash() {
+        let filter = PixelateFilter(bounds: CGRect(x: 10, y: 20, width: 100, height: 50))
+        // No backgroundImage set — should draw placeholder without crashing
+        let image = NSImage(size: NSSize(width: 200, height: 200))
+        image.lockFocus()
+        let context = NSGraphicsContext.current!.cgContext
+        filter.draw(in: context)
+        image.unlockFocus()
+    }
+
+    func testPixelSizeOneSkipsPixelation() {
+        let filter = PixelateFilter(bounds: CGRect(x: 0, y: 0, width: 50, height: 50))
+        filter.pixelSize = 1
+        let bgImage = NSImage(size: NSSize(width: 100, height: 100))
+        filter.backgroundImage = bgImage
+        // Should not crash and should draw placeholder
+        let image = NSImage(size: NSSize(width: 100, height: 100))
+        image.lockFocus()
+        let context = NSGraphicsContext.current!.cgContext
+        filter.draw(in: context)
+        image.unlockFocus()
     }
 
     func testHandleHitTestReturnsCorrectHandle() {

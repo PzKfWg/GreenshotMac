@@ -15,7 +15,8 @@ final class SpeechBubbleAnnotation: Annotation {
         self.bounds = bounds
         self.style = style
         self.text = text
-        self.tailPoint = tailPoint ?? CGPoint(x: bounds.midX, y: bounds.minY - 30)
+        // In flipped coords (isFlipped=true), maxY is the bottom edge
+        self.tailPoint = tailPoint ?? CGPoint(x: bounds.midX, y: bounds.maxY + 30)
     }
 
     func draw(in context: CGContext) {
@@ -39,7 +40,7 @@ final class SpeechBubbleAnnotation: Annotation {
 
         context.restoreGState()
 
-        // Draw text inside the body
+        // Draw text inside the body (CoreText expects bottom-up Y; flip for isFlipped view)
         context.saveGState()
         let textInset = bounds.insetBy(dx: 6, dy: 4)
         let attrs: [NSAttributedString.Key: Any] = [
@@ -49,7 +50,12 @@ final class SpeechBubbleAnnotation: Annotation {
         ]
         let attrString = NSAttributedString(string: text, attributes: attrs)
         let framesetter = CTFramesetterCreateWithAttributedString(attrString)
-        let textPath = CGPath(rect: textInset, transform: nil)
+
+        context.translateBy(x: textInset.origin.x, y: textInset.origin.y + textInset.height)
+        context.scaleBy(x: 1.0, y: -1.0)
+
+        let localRect = CGRect(origin: .zero, size: textInset.size)
+        let textPath = CGPath(rect: localRect, transform: nil)
         let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), textPath, nil)
         CTFrameDraw(frame, context)
         context.restoreGState()
@@ -66,8 +72,7 @@ final class SpeechBubbleAnnotation: Annotation {
     }
 
     func copy() -> Annotation {
-        let c = SpeechBubbleAnnotation(bounds: bounds, style: style, text: text, tailPoint: tailPoint)
-        return c
+        SpeechBubbleAnnotation(bounds: bounds, style: style, text: text, tailPoint: tailPoint)
     }
 
     // MARK: - Private
@@ -79,8 +84,9 @@ final class SpeechBubbleAnnotation: Annotation {
         path.addRoundedRect(in: bounds, cornerWidth: cornerRadius, cornerHeight: cornerRadius)
 
         // Tail triangle from bottom-center of body to tailPoint
+        // In flipped coords, maxY is the bottom edge
         let tailWidth: CGFloat = min(20, bounds.width * 0.3)
-        let bottomCenter = CGPoint(x: bounds.midX, y: bounds.minY)
+        let bottomCenter = CGPoint(x: bounds.midX, y: bounds.maxY)
         let tailLeft = CGPoint(x: bottomCenter.x - tailWidth / 2, y: bottomCenter.y)
         let tailRight = CGPoint(x: bottomCenter.x + tailWidth / 2, y: bottomCenter.y)
 
@@ -94,11 +100,10 @@ final class SpeechBubbleAnnotation: Annotation {
 
     private func isNearTail(point: CGPoint) -> Bool {
         let tailWidth: CGFloat = min(20, bounds.width * 0.3)
-        let bottomCenter = CGPoint(x: bounds.midX, y: bounds.minY)
+        let bottomCenter = CGPoint(x: bounds.midX, y: bounds.maxY)
         let tailLeft = CGPoint(x: bottomCenter.x - tailWidth / 2, y: bottomCenter.y)
         let tailRight = CGPoint(x: bottomCenter.x + tailWidth / 2, y: bottomCenter.y)
 
-        // Check if point is inside the tail triangle using barycentric coordinates
         return pointInTriangle(point, v1: tailLeft, v2: tailPoint, v3: tailRight)
     }
 

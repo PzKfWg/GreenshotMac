@@ -56,4 +56,25 @@ final class StepLabelAnnotationTests: XCTestCase {
         XCTAssertEqual(step.bounds.width, 30)
         XCTAssertEqual(step.bounds.height, 30)
     }
+
+    func testSetCounterToCustomStart() {
+        StepLabelAnnotation.setCounter(to: 5)
+        let step1 = StepLabelAnnotation(center: CGPoint(x: 50, y: 50))
+        let step2 = StepLabelAnnotation(center: CGPoint(x: 100, y: 100))
+        XCTAssertEqual(step1.stepNumber, 5)
+        XCTAssertEqual(step2.stepNumber, 6)
+    }
+
+    func testSetCounterMinimumIsOne() {
+        StepLabelAnnotation.setCounter(to: 0)
+        XCTAssertEqual(StepLabelAnnotation.currentCounter, 1)
+        StepLabelAnnotation.setCounter(to: -5)
+        XCTAssertEqual(StepLabelAnnotation.currentCounter, 1)
+    }
+
+    func testCurrentCounterReturnsNextValue() {
+        XCTAssertEqual(StepLabelAnnotation.currentCounter, 1)
+        _ = StepLabelAnnotation(center: CGPoint(x: 50, y: 50))
+        XCTAssertEqual(StepLabelAnnotation.currentCounter, 2)
+    }
 }

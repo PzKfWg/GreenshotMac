@@ -9,7 +9,8 @@ final class SpeechBubbleAnnotationTests: XCTestCase {
         let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 50, y: 100, width: 200, height: 80))
         XCTAssertEqual(bubble.bounds, CGRect(x: 50, y: 100, width: 200, height: 80))
         XCTAssertEqual(bubble.text, "Text")
-        XCTAssertEqual(bubble.tailPoint, CGPoint(x: 150, y: 70))
+        // In flipped coords, maxY=180 is the bottom edge; tail at maxY+30=210
+        XCTAssertEqual(bubble.tailPoint, CGPoint(x: 150, y: 210))
         XCTAssertFalse(bubble.isSelected)
         XCTAssertEqual(bubble.style.strokeWidth, 2.0)
     }

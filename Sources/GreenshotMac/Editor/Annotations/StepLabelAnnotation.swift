@@ -14,6 +14,14 @@ final class StepLabelAnnotation: Annotation {
         nextStepNumber = 1
     }
 
+    static func setCounter(to value: Int) {
+        nextStepNumber = max(1, value)
+    }
+
+    static var currentCounter: Int {
+        nextStepNumber
+    }
+
     init(center: CGPoint, style: AnnotationStyle = AnnotationStyle()) {
         let size: CGFloat = 30
         self.bounds = CGRect(

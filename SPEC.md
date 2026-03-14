@@ -74,12 +74,18 @@ Stockées dans `UserDefaults`. Valeurs configurables :
 |-----------|-----|--------|
 | Dossier de captures | `screenshotFolder` | `~/Desktop` |
 | Épaisseur de trait | `defaultStrokeWidth` | `2.0` |
+| Couleur de contour | `defaultStrokeColorData` | `.systemRed` |
+| Couleur de fond | `defaultFillColorData` | `.clear` |
 | Shadow activé | `defaultShadowEnabled` | `false` |
+
+Les couleurs sont persistées via `NSKeyedArchiver` (préserve l'espace colorimétrique et l'alpha).
 
 **Cas de test :**
 - CT-1.3.1 : Au premier lancement, `screenshotFolder` vaut `~/Desktop`.
 - CT-1.3.2 : Changer `defaultStrokeWidth` persiste entre les lancements.
 - CT-1.3.3 : Un `defaultStrokeWidth` de 0 ou négatif retourne la valeur par défaut (2.0).
+- CT-1.3.4 : Changer `defaultStrokeColor` persiste entre les lancements (alpha inclus).
+- CT-1.3.5 : Changer `defaultFillColor` persiste entre les lancements (alpha inclus).
 
 ---
 
@@ -89,17 +95,33 @@ Stockées dans `UserDefaults`. Valeurs configurables :
 
 Chaque image ouverte crée une fenêtre indépendante avec :
 - **Titre :** nom du fichier source (ou "Untitled" pour les collages clipboard)
-- **Taille initiale :** dimensions de l'image, plafonnées à 1200x800 pixels
+- **Taille initiale :** dimensions de l'image + sidebar, plafonnées à 1200x800 pixels
 - **Style :** titled, closable, resizable, miniaturizable
 - **Position :** centrée à l'écran
+- **Layout :** sidebar outils à gauche (largeur fixe 80pt) + canvas à droite
+
+```
+NSToolbar: [Stroke ◼ | Fill ◼ | Width ▾ | ── | Shadow | ── | Copy | Save]
+┌──────────┬─────────────────────────────────────┐
+│ Sidebar  │                                     │
+│ (2 cols) │         NSScrollView                │
+│          │         CanvasView                  │
+│ [⬚] [⬭] │                                     │
+│ [╱] [→]  │                                     │
+│ [A] [💬] │                                     │
+│ [①] [▦]  │                                     │
+│ [🖍] [⬒] │                                     │
+└──────────┴─────────────────────────────────────┘
+```
 
 **Cas de test :**
-- CT-2.1.1 : Ouvrir une image 500x300 crée une fenêtre de ~540x380 (image + marges).
+- CT-2.1.1 : Ouvrir une image 500x300 crée une fenêtre de ~620x380 (image + sidebar + marges).
 - CT-2.1.2 : Ouvrir une image 5000x3000 crée une fenêtre plafonnée à 1200x800.
 - CT-2.1.3 : Le titre affiche le nom du fichier (ex: "Screenshot 2024-01-15.png").
 - CT-2.1.4 : Ouvrir depuis le clipboard affiche "Untitled".
 - CT-2.1.5 : Fermer la fenêtre la retire de la liste des éditeurs actifs.
 - CT-2.1.6 : La fenêtre est redimensionnable et miniaturisable.
+- CT-2.1.7 : La sidebar reste à largeur fixe lors du redimensionnement, le canvas s'adapte.
 
 ### 2.2 Canvas (CanvasView)
 
@@ -118,35 +140,80 @@ Surface de dessin NSView (coordonnées flippées : origine en haut-gauche) conte
 - CT-2.2.4 : Une annotation créée plus tard apparaît AU-DESSUS des précédentes.
 - CT-2.2.5 : Scroller révèle les parties de l'image hors de la fenêtre.
 
-### 2.3 Toolbar
+### 2.3 Barre latérale d'outils (ToolSidebarView)
 
-Barre d'outils macOS native (NSToolbar) avec les boutons suivants, dans cet ordre :
+Panneau fixe à gauche (80pt de large) contenant les outils d'annotation en grille 2 colonnes. Chaque bouton est un `NSButton` toggle avec icône SF Symbol.
 
-| Bouton | Icône SF Symbol | Action |
-|--------|----------------|--------|
-| Select | `arrow.uturn.left.circle` | Passe en mode sélection |
-| Rectangle | `rectangle` | Outil rectangle |
-| Ellipse | `circle` | Outil ellipse |
-| Line | `line.diagonal` | Outil ligne |
-| Arrow | `arrow.right` | Outil flèche |
-| Text | `textformat` | Outil texte |
-| Bubble | `bubble.left` | Outil bulle de dialogue |
-| Step | `number.circle` | Outil numéro d'étape |
-| *(espace flexible)* | | |
-| Pixelate | `squareshape.split.3x3` | Outil pixelisation |
-| Highlight | `highlighter` | Outil surbrillance |
-| Crop | `crop` | Outil recadrage |
-| *(espace flexible)* | | |
-| Shadow | `shadow` | Active/désactive shadow pour le style courant |
-| Copy | `doc.on.clipboard` | Copie l'image annotée dans le clipboard |
-| Save | `square.and.arrow.down` | Sauvegarde l'image annotée dans un fichier |
+| Col 1 | Col 2 |
+|-------|-------|
+| Select (`arrow.uturn.left.circle`) | Rectangle (`rectangle`) |
+| Ellipse (`circle`) | Line (`line.diagonal`) |
+| Arrow (`arrow.right`) | Text (`textformat`) |
+| Bubble (`bubble.left`) | Step (`number.circle`) |
+| *(séparateur)* | |
+| Pixelate (`squareshape.split.3x3`) | Highlight (`highlighter`) |
+| Crop (`crop`) | |
+
+- Sélection exclusive : un seul outil actif à la fois (visuellement enfoncé)
+- Mise à jour programmatique quand le canvas revient en mode select après création
 
 **Cas de test :**
-- CT-2.3.1 : Tous les boutons sont visibles dans la toolbar.
+- CT-2.3.1 : Tous les boutons d'outils sont visibles dans la sidebar.
 - CT-2.3.2 : Cliquer un outil d'annotation change `currentTool` du canvas.
-- CT-2.3.3 : Cliquer Shadow toggle `currentStyle.shadow` entre `.default` et `.none`.
-- CT-2.3.4 : Cliquer Copy copie l'image finale dans le clipboard (vérifiable en collant dans Preview).
-- CT-2.3.5 : Cliquer Save ouvre un NSSavePanel avec PNG et JPEG comme formats.
+- CT-2.3.3 : Un seul bouton est enfoncé à la fois (sélection exclusive).
+- CT-2.3.4 : Après création d'une annotation, la sidebar revient à Select.
+- CT-2.3.5 : Un séparateur visuel sépare les outils d'annotation des filtres.
+
+### 2.4 Toolbar de style (NSToolbar)
+
+Barre d'outils macOS native en haut de la fenêtre, contenant les contrôles de style et les actions :
+
+| Élément | Type | Description |
+|---------|------|-------------|
+| Stroke | `NSColorWell` (style `.minimal`) | Couleur de contour, avec support alpha/transparence |
+| Fill | `NSColorWell` (style `.minimal`) | Couleur de fond, avec support alpha/transparence |
+| Width | `NSPopUpButton` | Épaisseur de trait (1, 2, 3, 5, 8, 12 pt) |
+| *(espace flexible)* | | |
+| Shadow | Bouton icône `shadow` | Active/désactive shadow pour le style courant |
+| *(espace flexible)* | | |
+| Copy | Bouton icône `doc.on.clipboard` | Copie l'image annotée dans le clipboard |
+| Save | Bouton icône `square.and.arrow.down` | Sauvegarde l'image annotée dans un fichier |
+
+**Visibilité contextuelle des contrôles :** Les color wells et le popup d'épaisseur sont montrés/cachés selon l'outil actif ou l'annotation sélectionnée :
+
+| Annotation | Contour | Fond | Épaisseur |
+|------------|---------|------|-----------|
+| Rectangle | ✓ | ✓ | ✓ |
+| Ellipse | ✓ | ✓ | ✓ |
+| Line | ✓ | — | ✓ |
+| Arrow | ✓ | — | ✓ |
+| Text | ✓ (couleur texte) | — | — |
+| SpeechBubble | ✓ | ✓ | ✓ |
+| StepLabel | — | — | — |
+| Pixelate | — | — | — |
+| Highlight | — | — | — |
+| Crop | — | — | — |
+
+**Comportement :**
+- Changer une couleur ou épaisseur met à jour `canvasView.currentStyle` pour les prochaines annotations
+- Si une annotation est sélectionnée, le changement s'applique aussi immédiatement (édition live)
+- Les changements de style sur annotation sélectionnée sont enregistrés dans l'undo manager
+- Les couleurs et épaisseur sont persistées dans `Preferences` entre les sessions
+- `NSColorPanel.shared.showsAlpha = true` pour permettre la transparence
+
+**Cas de test :**
+- CT-2.4.1 : Les color wells et popup épaisseur sont visibles pour l'outil Rectangle.
+- CT-2.4.2 : Seul le color well Stroke est visible pour l'outil Text.
+- CT-2.4.3 : Aucun contrôle de style n'est visible pour l'outil Pixelate.
+- CT-2.4.4 : Changer la couleur Stroke met à jour `currentStyle.strokeColor`.
+- CT-2.4.5 : Changer la couleur Fill met à jour `currentStyle.fillColor`.
+- CT-2.4.6 : Changer l'épaisseur met à jour `currentStyle.strokeWidth`.
+- CT-2.4.7 : Sélectionner une annotation met à jour les contrôles avec son style.
+- CT-2.4.8 : Modifier la couleur d'une annotation sélectionnée met à jour son rendu immédiatement.
+- CT-2.4.9 : Undo après modification de style restaure l'ancien style.
+- CT-2.4.10 : Cliquer Shadow toggle `currentStyle.shadow` entre `.default` et `.none`.
+- CT-2.4.11 : Cliquer Copy copie l'image finale dans le clipboard.
+- CT-2.4.12 : Cliquer Save ouvre un NSSavePanel avec PNG et JPEG comme formats.
 
 ---
 
@@ -276,14 +343,16 @@ Cercle coloré avec un numéro centré, auto-incrémenté.
 
 **Couleur :** Le cercle est rempli avec `fillColor` (ou `systemRed` si `fillColor` est `.clear`). Le numéro est en blanc, gras, taille = `style.fontSize`.
 
-**Auto-incrémentation :** Un compteur statique (`nextStepNumber`) attribue automatiquement 1, 2, 3... à chaque nouveau step label. `resetCounter()` remet le compteur à 1.
+**Auto-incrémentation :** Un compteur statique (`nextStepNumber`) attribue automatiquement des numéros séquentiels à chaque nouveau step label. `resetCounter()` remet le compteur à 1. `setCounter(to:)` permet de définir le numéro de départ (minimum 1). `currentCounter` retourne la valeur actuelle du compteur.
+
+**Numéro de départ configurable :** Un stepper dans la barre d'outils (visible quand l'outil Step est sélectionné) permet de choisir le numéro de départ (1-999). La valeur est persistée dans les préférences (`stepLabelStartNumber`). Changer le numéro de départ met à jour le compteur pour le prochain step label créé.
 
 **Hit test :** Basé sur la distance au centre du cercle (rayon + 4px tolérance).
 
 **Copie :** `copy()` préserve le `stepNumber` sans incrémenter le compteur.
 
 **Cas de test :**
-- CT-3.7.1 : Le premier step label porte le numéro 1, le deuxième le 2, etc.
+- CT-3.7.1 : Le premier step label porte le numéro configuré (défaut 1), le deuxième l'incrémente, etc.
 - CT-3.7.2 : `resetCounter()` remet le prochain numéro à 1.
 - CT-3.7.3 : Le cercle est centré sur le point de clic.
 - CT-3.7.4 : Le cercle est rempli en rouge par défaut.
@@ -291,6 +360,9 @@ Cercle coloré avec un numéro centré, auto-incrémenté.
 - CT-3.7.6 : Cliquer à l'intérieur du cercle (distance < rayon + 4) sélectionne.
 - CT-3.7.7 : Cliquer à l'extérieur du cercle ne sélectionne pas.
 - CT-3.7.8 : La copie préserve le stepNumber sans incrémenter le compteur global.
+- CT-3.7.9 : `setCounter(to: 5)` fait que le prochain step label porte le numéro 5.
+- CT-3.7.10 : `setCounter(to:)` avec une valeur < 1 utilise 1 comme minimum.
+- CT-3.7.11 : Le stepper "Start #" est visible uniquement quand l'outil Step est sélectionné.
 
 ---
 
@@ -328,18 +400,23 @@ Propriété configurable sur toutes les annotations via `ShadowStyle` :
 
 ### 5.1 Pixelisation
 
-Zone rectangulaire indiquant que la région sera pixelisée au rendu final.
+Zone rectangulaire qui pixelise la région de l'image de fond en temps réel.
 
-**Visuel en édition :** Overlay gris semi-transparent (15% opacité) avec une grille de lignes (espacement 8px, 30% opacité de strokeColor) et un contour pointillé (tirets 6px, espaces 4px).
+**Algorithme :** Utilise le filtre Core Image `CIPixellate` pour moyenner les couleurs en blocs de `pixelSize × pixelSize` pixels (même approche que Greenshot Windows).
 
-**Note :** La pixelisation réelle des pixels de l'image de fond n'est pas encore implémentée. L'indication visuelle sert de marqueur pour un traitement futur ou pour le rendu final.
+**Propriété `pixelSize` :** Taille des blocs de pixels (défaut : 5). Configurable via le popup "Pixel Size" dans la toolbar, visible uniquement quand l'outil Pixelate est sélectionné ou qu'un PixelateFilter est sélectionné. Valeurs proposées : 3, 5, 7, 9, 12, 15, 20 px.
+
+**Visuel en édition :** Pixelisation réelle de l'image de fond + contour pointillé gris (tirets 6px, espaces 4px). Si l'image de fond n'est pas disponible ou `pixelSize ≤ 1`, un placeholder est affiché (overlay gris 15% + grille 8px).
 
 **Cas de test :**
-- CT-5.1.1 : Cliquer-glisser avec l'outil Pixelate crée une zone avec overlay gris et grille.
+- CT-5.1.1 : Cliquer-glisser avec l'outil Pixelate crée une zone avec pixelisation visible.
 - CT-5.1.2 : La zone a un contour pointillé (pas continu).
 - CT-5.1.3 : Le hit test fonctionne normalement (bounds + tolérance).
 - CT-5.1.4 : La zone peut être déplacée et redimensionnée.
-- CT-5.1.5 : La copie crée une zone indépendante.
+- CT-5.1.5 : La copie crée une zone indépendante avec le même pixelSize.
+- CT-5.1.6 : Changer pixelSize via le popup toolbar met à jour la pixelisation en temps réel.
+- CT-5.1.7 : Le rendu final (`renderFinalImage`) inclut la pixelisation effective.
+- CT-5.1.8 : Sans image de fond, le placeholder (grille) est affiché sans crash.
 
 ### 5.2 Surbrillance (Highlight)
 
@@ -483,9 +560,13 @@ BottomLeft - BottomCenter - BottomRight
 | fontName | String | `"Helvetica"` |
 | shadow | ShadowStyle | `.default` |
 
-Le style courant (`canvasView.currentStyle`) est appliqué à chaque nouvelle annotation au moment de sa création. Modifier le style courant n'affecte pas les annotations existantes.
+Le style courant (`canvasView.currentStyle`) est appliqué à chaque nouvelle annotation au moment de sa création. Modifier le style courant via la toolbar n'affecte pas les annotations existantes, sauf si une annotation est sélectionnée (édition live — voir section 2.4).
+
+Les valeurs initiales de `strokeColor`, `fillColor` et `strokeWidth` sont chargées depuis `Preferences` au démarrage.
 
 **Cas de test :**
 - CT-10.1 : Une annotation créée utilise le style courant du canvas au moment de la création.
-- CT-10.2 : Modifier le style courant après création ne change pas les annotations existantes.
+- CT-10.2 : Modifier le style courant après création ne change pas les annotations existantes (sans sélection).
 - CT-10.3 : Chaque annotation a sa propre copie du style (pas de partage par référence).
+- CT-10.4 : Les couleurs avec alpha (ex: rouge à 50% d'opacité) sont correctement préservées lors de la création et du rendu.
+- CT-10.5 : Modifier le style d'une annotation sélectionnée via la toolbar met à jour immédiatement son rendu.

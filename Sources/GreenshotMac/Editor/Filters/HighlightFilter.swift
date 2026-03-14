@@ -9,7 +9,9 @@ final class HighlightFilter: Annotation {
 
     init(bounds: CGRect, style: AnnotationStyle? = nil) {
         self.bounds = bounds
-        if let style {
+        if var style {
+            // Spec §5.2: shadow is always disabled on highlights
+            style.shadow = .none
             self.style = style
         } else {
             var defaultStyle = AnnotationStyle()

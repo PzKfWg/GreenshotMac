@@ -1,20 +1,30 @@
 import AppKit
 
 @MainActor
+protocol CanvasViewDelegate: AnyObject {
+    func canvasView(_ canvas: CanvasView, didSelectAnnotation annotation: Annotation?)
+    func canvasView(_ canvas: CanvasView, didChangeCurrentTool tool: AnnotationTool)
+}
+
+@MainActor
 final class CanvasView: NSView {
     var backgroundImage: NSImage? {
         didSet { needsDisplay = true }
     }
 
+    weak var delegate: CanvasViewDelegate?
+
     private(set) var annotations: [Annotation] = []
-    private var selectedAnnotation: Annotation?
+    private(set) var selectedAnnotation: Annotation?
     private var activeHandle: HandlePosition?
     private var dragStart: CGPoint = .zero
     private var dragOldBounds: CGRect = .zero
     private var dragOldStyle: AnnotationStyle?
     private var isCreatingAnnotation = false
 
-    var currentTool: AnnotationTool = .select
+    var currentTool: AnnotationTool = .select {
+        didSet { delegate?.canvasView(self, didChangeCurrentTool: currentTool) }
+    }
     var currentStyle: AnnotationStyle = AnnotationStyle()
 
     private(set) var annotationUndoManager: AnnotationUndoManager!
@@ -29,6 +39,11 @@ final class CanvasView: NSView {
 
     func setupUndoManager() {
         annotationUndoManager = AnnotationUndoManager(canvas: self)
+        // Apply saved preferences to the initial style
+        currentStyle.strokeColor = Preferences.shared.defaultStrokeColor
+        currentStyle.fillColor = Preferences.shared.defaultFillColor
+        currentStyle.strokeWidth = Preferences.shared.defaultStrokeWidth
+        currentStyle.shadow = Preferences.shared.defaultShadowEnabled ? .default : .none
     }
 
     // MARK: - Annotation Management
@@ -67,6 +82,7 @@ final class CanvasView: NSView {
         selectedAnnotation = annotation
         annotation?.isSelected = true
         needsDisplay = true
+        delegate?.canvasView(self, didSelectAnnotation: annotation)
     }
 
     // MARK: - Drawing
@@ -84,6 +100,13 @@ final class CanvasView: NSView {
             image.draw(in: imageRect)
         }
 
+        // Assign background image to pixelate filters before rendering
+        for annotation in annotations {
+            if let pf = annotation as? PixelateFilter {
+                pf.backgroundImage = backgroundImage
+            }
+        }
+
         // Annotations
         for annotation in annotations {
             context.saveGState()
@@ -98,32 +121,50 @@ final class CanvasView: NSView {
         guard let bgImage = backgroundImage else { return nil }
         let size = bgImage.size
 
-        let image = NSImage(size: size)
-        image.lockFocus()
+        let wasSelected = selectedAnnotation
+        selectAnnotation(nil)
+        defer { if let was = wasSelected { selectAnnotation(was) } }
 
-        guard let context = NSGraphicsContext.current?.cgContext else {
-            image.unlockFocus()
-            return nil
-        }
+        guard let bitmapRep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(size.width),
+            pixelsHigh: Int(size.height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return nil }
+
+        bitmapRep.size = size
+
+        guard let nsContext = NSGraphicsContext(bitmapImageRep: bitmapRep) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsContext
+
+        let cgContext = nsContext.cgContext
+
+        // Flip coordinate system to match isFlipped=true
+        cgContext.translateBy(x: 0, y: size.height)
+        cgContext.scaleBy(x: 1, y: -1)
 
         bgImage.draw(in: CGRect(origin: .zero, size: size))
 
-        // Deselect to hide handles
-        let wasSelected = selectedAnnotation
-        selectAnnotation(nil)
-
         for annotation in annotations {
-            context.saveGState()
-            annotation.draw(in: context)
-            context.restoreGState()
+            if let pf = annotation as? PixelateFilter {
+                pf.backgroundImage = bgImage
+            }
+            cgContext.saveGState()
+            annotation.draw(in: cgContext)
+            cgContext.restoreGState()
         }
 
-        // Restore selection
-        if let was = wasSelected {
-            selectAnnotation(was)
-        }
+        NSGraphicsContext.restoreGraphicsState()
 
-        image.unlockFocus()
+        let image = NSImage(size: size)
+        image.addRepresentation(bitmapRep)
         return image
     }
 
@@ -242,7 +283,9 @@ final class CanvasView: NSView {
         case .stepLabel:
             annotation = StepLabelAnnotation(center: point, style: currentStyle)
         case .pixelate:
-            annotation = PixelateFilter(bounds: bounds)
+            let pf = PixelateFilter(bounds: bounds)
+            pf.backgroundImage = backgroundImage
+            annotation = pf
         case .highlight:
             annotation = HighlightFilter(bounds: bounds)
         case .crop:
@@ -257,6 +300,7 @@ final class CanvasView: NSView {
         }
 
         creatingAnnotation = annotation
+        // Append directly — undo is recorded in handleCreateMouseUp after validation
         annotations.append(annotation)
         selectAnnotation(annotation)
         needsDisplay = true
@@ -270,6 +314,15 @@ final class CanvasView: NSView {
             width: abs(point.x - creationStartPoint.x),
             height: abs(point.y - creationStartPoint.y)
         )
+
+        // Track direction for line-based annotations (bounds normalization loses this info)
+        let direction = DiagonalDirection.from(start: creationStartPoint, end: point)
+        if let line = annotation as? LineAnnotation {
+            line.direction = direction
+        } else if let arrow = annotation as? ArrowAnnotation {
+            arrow.direction = direction
+        }
+
         needsDisplay = true
     }
 

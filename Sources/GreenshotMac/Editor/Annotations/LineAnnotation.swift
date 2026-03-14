@@ -6,13 +6,30 @@ final class LineAnnotation: Annotation {
     var bounds: CGRect
     var style: AnnotationStyle
     var isSelected: Bool = false
+    var direction: DiagonalDirection
 
-    var startPoint: CGPoint { CGPoint(x: bounds.minX, y: bounds.minY) }
-    var endPoint: CGPoint { CGPoint(x: bounds.maxX, y: bounds.maxY) }
+    var startPoint: CGPoint {
+        switch direction {
+        case .topLeftToBottomRight: return CGPoint(x: bounds.minX, y: bounds.minY)
+        case .bottomLeftToTopRight: return CGPoint(x: bounds.minX, y: bounds.maxY)
+        case .bottomRightToTopLeft: return CGPoint(x: bounds.maxX, y: bounds.maxY)
+        case .topRightToBottomLeft: return CGPoint(x: bounds.maxX, y: bounds.minY)
+        }
+    }
 
-    init(bounds: CGRect, style: AnnotationStyle = AnnotationStyle()) {
+    var endPoint: CGPoint {
+        switch direction {
+        case .topLeftToBottomRight: return CGPoint(x: bounds.maxX, y: bounds.maxY)
+        case .bottomLeftToTopRight: return CGPoint(x: bounds.maxX, y: bounds.minY)
+        case .bottomRightToTopLeft: return CGPoint(x: bounds.minX, y: bounds.minY)
+        case .topRightToBottomLeft: return CGPoint(x: bounds.minX, y: bounds.maxY)
+        }
+    }
+
+    init(bounds: CGRect, style: AnnotationStyle = AnnotationStyle(), direction: DiagonalDirection = .topLeftToBottomRight) {
         self.bounds = bounds
         self.style = style
+        self.direction = direction
     }
 
     func draw(in context: CGContext) {
@@ -34,36 +51,10 @@ final class LineAnnotation: Annotation {
 
     func hitTest(point: CGPoint) -> Bool {
         let tolerance: CGFloat = 6.0
-        return distanceFromPointToLine(point: point, lineStart: startPoint, lineEnd: endPoint) <= tolerance
+        return distanceFromPointToLineSegment(point: point, lineStart: startPoint, lineEnd: endPoint) <= tolerance
     }
 
     func copy() -> Annotation {
-        LineAnnotation(bounds: bounds, style: style)
-    }
-
-    // MARK: - Private
-
-    private func distanceFromPointToLine(point: CGPoint, lineStart: CGPoint, lineEnd: CGPoint) -> CGFloat {
-        let dx = lineEnd.x - lineStart.x
-        let dy = lineEnd.y - lineStart.y
-        let lengthSquared = dx * dx + dy * dy
-
-        if lengthSquared == 0 {
-            // Line is a point
-            let px = point.x - lineStart.x
-            let py = point.y - lineStart.y
-            return sqrt(px * px + py * py)
-        }
-
-        // Parameter t of the closest point on the segment
-        var t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / lengthSquared
-        t = max(0, min(1, t))
-
-        let closestX = lineStart.x + t * dx
-        let closestY = lineStart.y + t * dy
-
-        let distX = point.x - closestX
-        let distY = point.y - closestY
-        return sqrt(distX * distX + distY * distY)
+        LineAnnotation(bounds: bounds, style: style, direction: direction)
     }
 }

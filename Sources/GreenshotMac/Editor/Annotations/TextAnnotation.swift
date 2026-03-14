@@ -25,7 +25,13 @@ final class TextAnnotation: Annotation {
         ]
         let attrString = NSAttributedString(string: text, attributes: attrs)
         let framesetter = CTFramesetterCreateWithAttributedString(attrString)
-        let path = CGPath(rect: bounds, transform: nil)
+
+        // CoreText expects bottom-up Y axis; flip for our isFlipped view
+        context.translateBy(x: bounds.origin.x, y: bounds.origin.y + bounds.height)
+        context.scaleBy(x: 1.0, y: -1.0)
+
+        let localRect = CGRect(origin: .zero, size: bounds.size)
+        let path = CGPath(rect: localRect, transform: nil)
         let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), path, nil)
         CTFrameDraw(frame, context)
 
@@ -35,7 +41,6 @@ final class TextAnnotation: Annotation {
     }
 
     func copy() -> Annotation {
-        let c = TextAnnotation(bounds: bounds, style: style, text: text)
-        return c
+        TextAnnotation(bounds: bounds, style: style, text: text)
     }
 }
