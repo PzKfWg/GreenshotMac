@@ -464,8 +464,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc private func arrowHeadChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         guard let arrow = canvasView.selectedAnnotation as? ArrowAnnotation else { return }
-        let oldBounds = arrow.bounds
-        let oldStyle = arrow.style
+        let oldHeads = arrow.arrowHeads
         let tag = sender.selectedItem?.tag ?? 0
         switch tag {
         case 0: arrow.arrowHeads = .endPoint
@@ -474,18 +473,26 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case 3: arrow.arrowHeads = .none
         default: break
         }
-        canvasView.annotationUndoManager.recordModify(arrow, oldBounds: oldBounds, oldStyle: oldStyle)
+        let newHeads = arrow.arrowHeads
+        canvasView.annotationUndoManager.recordPropertyChange(arrow) {
+            arrow.arrowHeads = oldHeads
+        } redo: {
+            arrow.arrowHeads = newHeads
+        }
         canvasView.needsDisplay = true
     }
 
     @objc private func blurRadiusChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
-        let radius = sender.selectedItem?.tag ?? 10
+        let newRadius = sender.selectedItem?.tag ?? 10
         if let of = canvasView.selectedAnnotation as? ObfuscateFilter {
-            let oldBounds = of.bounds
-            let oldStyle = of.style
-            of.blurRadius = radius
-            canvasView.annotationUndoManager.recordModify(of, oldBounds: oldBounds, oldStyle: oldStyle)
+            let oldRadius = of.blurRadius
+            of.blurRadius = newRadius
+            canvasView.annotationUndoManager.recordPropertyChange(of) {
+                of.blurRadius = oldRadius
+            } redo: {
+                of.blurRadius = newRadius
+            }
             canvasView.needsDisplay = true
         }
     }
@@ -514,12 +521,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func cornerRadiusChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
-        let radius = CGFloat(sender.selectedItem?.tag ?? 0)
+        let newRadius = CGFloat(sender.selectedItem?.tag ?? 0)
         if let rect = canvasView.selectedAnnotation as? RectangleAnnotation {
-            let oldBounds = rect.bounds
-            let oldStyle = rect.style
-            rect.cornerRadius = radius
-            canvasView.annotationUndoManager.recordModify(rect, oldBounds: oldBounds, oldStyle: oldStyle)
+            let oldRadius = rect.cornerRadius
+            rect.cornerRadius = newRadius
+            canvasView.annotationUndoManager.recordPropertyChange(rect) {
+                rect.cornerRadius = oldRadius
+            } redo: {
+                rect.cornerRadius = newRadius
+            }
             canvasView.needsDisplay = true
         }
     }
@@ -598,12 +608,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func pixelSizeChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
-        let size = sender.selectedItem?.tag ?? 5
+        let newSize = sender.selectedItem?.tag ?? 5
         if let pf = canvasView.selectedAnnotation as? PixelateFilter {
-            let oldBounds = pf.bounds
-            let oldStyle = pf.style
-            pf.pixelSize = size
-            canvasView.annotationUndoManager.recordModify(pf, oldBounds: oldBounds, oldStyle: oldStyle)
+            let oldSize = pf.pixelSize
+            pf.pixelSize = newSize
+            canvasView.annotationUndoManager.recordPropertyChange(pf) {
+                pf.pixelSize = oldSize
+            } redo: {
+                pf.pixelSize = newSize
+            }
             canvasView.needsDisplay = true
         }
     }

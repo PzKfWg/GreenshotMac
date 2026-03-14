@@ -25,7 +25,7 @@ final class AnnotationUndoManager {
                 self?.canvas?.addAnnotation(annotation, isUndoAction: true)
             }
         }
-        undoManager.setActionName("Add Annotation")
+        undoManager.setActionName("Ajouter une annotation")
     }
 
     func recordRemove(_ annotation: Annotation, at index: Int) {
@@ -35,7 +35,33 @@ final class AnnotationUndoManager {
                 self?.canvas?.removeAnnotation(annotation, isUndoAction: true)
             }
         }
-        undoManager.setActionName("Remove Annotation")
+        undoManager.setActionName("Supprimer une annotation")
+    }
+
+    func recordReorder(_ annotation: Annotation, from oldIndex: Int, to newIndex: Int) {
+        undoManager.registerUndo(withTarget: self) { [weak self] target in
+            self?.canvas?.moveAnnotation(annotation, from: newIndex, to: oldIndex)
+            target.undoManager.registerUndo(withTarget: target) { target2 in
+                self?.canvas?.moveAnnotation(annotation, from: oldIndex, to: newIndex)
+            }
+        }
+        undoManager.setActionName("Réordonner une annotation")
+    }
+
+    func recordPropertyChange(_ annotation: Annotation, undo undoBlock: @escaping @MainActor () -> Void, redo redoBlock: @escaping @MainActor () -> Void) {
+        undoManager.registerUndo(withTarget: self) { [weak self] target in
+            MainActor.assumeIsolated {
+                undoBlock()
+                self?.canvas?.needsDisplay = true
+                target.undoManager.registerUndo(withTarget: target) { [weak self] target2 in
+                    MainActor.assumeIsolated {
+                        redoBlock()
+                        self?.canvas?.needsDisplay = true
+                    }
+                }
+            }
+        }
+        undoManager.setActionName("Modifier une annotation")
     }
 
     func recordModify(_ annotation: Annotation, oldBounds: CGRect, oldStyle: AnnotationStyle) {
@@ -51,6 +77,6 @@ final class AnnotationUndoManager {
                 self?.canvas?.needsDisplay = true
             }
         }
-        undoManager.setActionName("Modify Annotation")
+        undoManager.setActionName("Modifier une annotation")
     }
 }
