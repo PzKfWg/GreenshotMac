@@ -58,6 +58,13 @@ enum AnnotationTool: String, CaseIterable, Sendable {
     }
 }
 
+enum ArrowHeadCombination: Sendable {
+    case none
+    case startPoint
+    case endPoint
+    case both
+}
+
 enum DiagonalDirection: Sendable {
     case topLeftToBottomRight
     case bottomLeftToTopRight
