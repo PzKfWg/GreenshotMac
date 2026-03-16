@@ -184,7 +184,7 @@ final class AnnotationToolTests: XCTestCase {
 
     func testAllToolsCovered() {
         let allTools = AnnotationTool.allCases
-        XCTAssertEqual(allTools.count, 11) // select + 7 annotations + pixelate + highlight + crop
+        XCTAssertEqual(allTools.count, 13) // select + 8 annotations (incl. freehand) + pixelate + highlight + obfuscate + crop
     }
 
     func testToolRawValues() {
@@ -198,6 +198,7 @@ final class AnnotationToolTests: XCTestCase {
         XCTAssertEqual(AnnotationTool.stepLabel.rawValue, "stepLabel")
         XCTAssertEqual(AnnotationTool.pixelate.rawValue, "pixelate")
         XCTAssertEqual(AnnotationTool.highlight.rawValue, "highlight")
+        XCTAssertEqual(AnnotationTool.freehand.rawValue, "freehand")
         XCTAssertEqual(AnnotationTool.crop.rawValue, "crop")
     }
 }

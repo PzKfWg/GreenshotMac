@@ -41,16 +41,24 @@ final class ArrowAnnotation: Annotation {
 
     func draw(in context: CGContext) {
         context.saveGState()
+        context.setAlpha(style.opacity)
         style.shadow.apply(to: context)
 
         context.setStrokeColor(style.strokeColor.cgColor)
         context.setLineWidth(style.strokeWidth)
-        context.setLineCap(.round)
+        context.setLineCap(.butt)
+        style.dashPattern.apply(to: context)
+
+        // Shorten line so it stops at arrowhead base (matches Greenshot Windows AdjustableArrowCap behavior)
+        let lineStart = shortenedPoint(from: startPoint, towards: endPoint, shorten: arrowHeads == .startPoint || arrowHeads == .both)
+        let lineEnd = shortenedPoint(from: endPoint, towards: startPoint, shorten: arrowHeads == .endPoint || arrowHeads == .both)
 
         // Draw line
-        context.move(to: startPoint)
-        context.addLine(to: endPoint)
+        context.move(to: lineStart)
+        context.addLine(to: lineEnd)
         context.strokePath()
+        // Reset dash for arrowheads (they should always be solid)
+        context.setLineDash(phase: 0, lengths: [])
 
         // Draw arrowheads
         context.setFillColor(style.strokeColor.cgColor)
@@ -115,6 +123,17 @@ final class ArrowAnnotation: Annotation {
     }
 
     // MARK: - Private
+
+    /// Shortens a line endpoint by the arrowhead height so the line stops at the arrowhead base.
+    private func shortenedPoint(from point: CGPoint, towards other: CGPoint, shorten: Bool) -> CGPoint {
+        guard shorten else { return point }
+        let dx = other.x - point.x
+        let dy = other.y - point.y
+        let length = sqrt(dx * dx + dy * dy)
+        guard length > arrowCapHeight else { return point }
+        let ratio = arrowCapHeight / length
+        return CGPoint(x: point.x + dx * ratio, y: point.y + dy * ratio)
+    }
 
     private func drawArrowhead(in context: CGContext, at tip: CGPoint, towards: CGPoint) {
         let (p1, p2) = arrowheadPoints(tip: tip, towards: towards)

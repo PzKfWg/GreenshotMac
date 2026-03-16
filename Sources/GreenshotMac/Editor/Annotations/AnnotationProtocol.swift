@@ -95,7 +95,7 @@ enum AnnotationTool: String, CaseIterable, Sendable {
     }
 
     var supportsCornerRadius: Bool {
-        self == .rectangle
+        self == .rectangle || self == .speechBubble
     }
 
     var supportsOpacity: Bool {

@@ -187,13 +187,14 @@ final class CanvasViewTests: XCTestCase {
         let step = StepLabelAnnotation(center: CGPoint(x: 200, y: 200))
         let pixelate = PixelateFilter(bounds: CGRect(x: 250, y: 0, width: 50, height: 50))
         let highlight = HighlightFilter(bounds: CGRect(x: 250, y: 60, width: 50, height: 50))
+        let obfuscate = ObfuscateFilter(bounds: CGRect(x: 250, y: 120, width: 50, height: 50))
 
-        let annotations: [Annotation] = [rect, ellipse, line, arrow, text, bubble, step, pixelate, highlight]
+        let annotations: [Annotation] = [rect, ellipse, line, arrow, text, bubble, step, pixelate, highlight, obfuscate]
         for annotation in annotations {
             canvas.addAnnotation(annotation, isUndoAction: true)
         }
 
-        XCTAssertEqual(canvas.annotations.count, 9)
+        XCTAssertEqual(canvas.annotations.count, 10)
     }
 
     // MARK: - Remove nonexistent annotation is no-op

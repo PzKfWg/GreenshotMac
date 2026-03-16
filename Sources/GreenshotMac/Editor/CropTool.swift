@@ -14,16 +14,22 @@ final class CropTool {
     }
 
     /// Crops the background image, adjusts annotation positions, removes out-of-bounds annotations,
-    /// and resizes the canvas frame to match the new image size.
+    /// and resizes the canvas frame to match the new image size. Supports undo.
     static func applyCrop(to canvas: CanvasView, rect: CGRect) {
         guard let bgImage = canvas.backgroundImage,
               let croppedImage = crop(image: bgImage, to: rect) else { return }
+
+        // Capture state for undo
+        let previousImage = bgImage
+        let previousFrame = canvas.frame
+        let previousBounds: [(Annotation, CGRect)] = canvas.annotations.map { ($0, $0.bounds) }
 
         canvas.backgroundImage = croppedImage
 
         // Collect annotations that fall completely outside the new bounds
         let newBounds = CGRect(origin: .zero, size: croppedImage.size)
         var toRemove: [Annotation] = []
+        var removedAnnotations: [(Annotation, Int)] = []
 
         for annotation in canvas.annotations {
             // Shift annotation position by subtracting the crop origin
@@ -39,10 +45,29 @@ final class CropTool {
         }
 
         for annotation in toRemove {
+            if let index = canvas.annotations.firstIndex(where: { $0.id == annotation.id }) {
+                removedAnnotations.append((annotation, index))
+            }
             canvas.removeAnnotation(annotation, isUndoAction: true)
         }
 
         // Resize the canvas frame to match the new image size
         canvas.frame = CGRect(origin: canvas.frame.origin, size: croppedImage.size)
+
+        // Register undo for the whole crop operation
+        canvas.annotationUndoManager.nsUndoManager.registerUndo(withTarget: canvas) { canvas in
+            canvas.backgroundImage = previousImage
+            canvas.frame = previousFrame
+            // Restore annotation bounds
+            for (annotation, oldBounds) in previousBounds {
+                annotation.bounds = oldBounds
+            }
+            // Re-add removed annotations at their original indices
+            for (annotation, index) in removedAnnotations.reversed() {
+                canvas.insertAnnotation(annotation, at: index, isUndoAction: true)
+            }
+            canvas.needsDisplay = true
+        }
+        canvas.annotationUndoManager.nsUndoManager.setActionName("Recadrer")
     }
 }

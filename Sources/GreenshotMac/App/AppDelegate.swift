@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var screenshotWatcher: ScreenshotWatcher?
     private var editorWindows: [EditorWindowController] = []
+    private var preferencesWindowController: PreferencesWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -23,18 +24,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Open Image...",
+        menu.addItem(NSMenuItem(title: "Ouvrir une image...",
                                 action: #selector(openImageFile),
                                 keyEquivalent: "o"))
-        menu.addItem(NSMenuItem(title: "Paste from Clipboard",
+        menu.addItem(NSMenuItem(title: "Coller depuis le presse-papiers",
                                 action: #selector(pasteFromClipboard),
                                 keyEquivalent: "v"))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Preferences...",
+        menu.addItem(NSMenuItem(title: "Préférences...",
                                 action: #selector(showPreferences),
                                 keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit GreenshotMac",
+        menu.addItem(NSMenuItem(title: "Quitter GreenshotMac",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
         statusItem.menu = menu
@@ -59,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let editor = EditorWindowController(image: image, sourceURL: imageURL)
         editorWindows.append(editor)
         editor.showWindow(nil)
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -66,11 +68,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let editor = EditorWindowController(image: image, sourceURL: nil)
         editorWindows.append(editor)
         editor.showWindow(nil)
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func editorDidClose(_ editor: EditorWindowController) {
         editorWindows.removeAll { $0 === editor }
+        if editorWindows.isEmpty {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 
     // MARK: - Menu Actions
@@ -94,6 +100,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showPreferences() {
-        // TODO: Preferences window
+        if preferencesWindowController == nil {
+            let controller = PreferencesWindowController()
+            controller.onFolderChanged = { [weak self] in
+                self?.restartScreenshotWatcher()
+            }
+            preferencesWindowController = controller
+        }
+        preferencesWindowController?.showWindow(nil)
+        preferencesWindowController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func restartScreenshotWatcher() {
+        screenshotWatcher?.stop()
+        screenshotWatcher = nil
+        startScreenshotWatcher()
+    }
+
+    // MARK: - Drag & Drop / Open File (Loop 69)
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            let imageExtensions = ["png", "jpg", "jpeg", "tiff", "tif", "bmp", "gif"]
+            if imageExtensions.contains(url.pathExtension.lowercased()) {
+                openEditor(with: url)
+            }
+        }
     }
 }

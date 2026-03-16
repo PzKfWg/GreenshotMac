@@ -9,12 +9,7 @@ final class SpeechBubbleAnnotation: Annotation {
     var text: String = "Texte"
     var tailPoint: CGPoint
 
-    /// Adaptive corner radius matching Greenshot Windows:
-    /// min(30, smallerSide / 2 - lineThickness)
-    var cornerRadius: CGFloat {
-        let smallerSide = min(abs(bounds.width), abs(bounds.height))
-        return max(0, min(30, smallerSide / 2 - style.strokeWidth))
-    }
+    var cornerRadius: CGFloat
 
     /// Tail width matching Greenshot Windows formula:
     /// (|width| + |height|) / 20, capped to half of each dimension
@@ -37,10 +32,11 @@ final class SpeechBubbleAnnotation: Annotation {
         return s
     }
 
-    init(bounds: CGRect, style: AnnotationStyle? = nil, text: String = "Texte", tailPoint: CGPoint? = nil) {
+    init(bounds: CGRect, style: AnnotationStyle? = nil, text: String = "Texte", tailPoint: CGPoint? = nil, cornerRadius: CGFloat = 20) {
         self.bounds = bounds
         self.style = style ?? SpeechBubbleAnnotation.defaultStyle
         self.text = text
+        self.cornerRadius = cornerRadius
         // In flipped coords (isFlipped=true), maxY is the bottom edge
         self.tailPoint = tailPoint ?? CGPoint(x: bounds.midX, y: bounds.maxY + 30)
     }
@@ -51,35 +47,57 @@ final class SpeechBubbleAnnotation: Annotation {
         style.shadow.apply(to: context)
 
         let bubblePath = buildBubblePath()
-        let tailPath = buildTailPath()
+        let tailFillPath = buildTailFillPath()
+        let tailStrokePath = buildTailStrokePath()
 
-        // Fill bubble body
+        // Use a transparency layer so the combined fill/stroke casts a single
+        // shadow instead of the tail triangle generating its own shadow inside the bubble.
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
+
+        // Fill bubble + tail as a combined shape
         if style.fillColor != .clear {
+            context.setFillColor(style.fillColor.cgColor)
             context.addPath(bubblePath)
-            context.setFillColor(style.fillColor.cgColor)
+            context.fillPath()
+            context.addPath(tailFillPath)
             context.fillPath()
         }
 
-        // Fill tail
-        if style.fillColor != .clear {
-            context.addPath(tailPath)
-            context.setFillColor(style.fillColor.cgColor)
-            context.fillPath()
-        }
+        // Stroke tail, clipping out the bubble interior so lines
+        // are only visible outside the bubble (matches original Greenshot)
+        context.saveGState()
+        let clipRect1 = bounds.standardized.insetBy(dx: -500, dy: -500)
+        let tailClipPath = CGMutablePath()
+        tailClipPath.addRect(clipRect1)
+        tailClipPath.addPath(bubblePath)
+        context.addPath(tailClipPath)
+        context.clip(using: .evenOdd)
 
-        // Stroke bubble
+        context.addPath(tailStrokePath)
+        context.setStrokeColor(style.strokeColor.cgColor)
+        context.setLineWidth(style.strokeWidth)
+        style.dashPattern.apply(to: context)
+        context.strokePath()
+        context.restoreGState()
+
+        // Stroke bubble, clipping out the tail interior so no stroke
+        // appears at the junction where the tail exits
+        context.saveGState()
+        let clipRect2 = bounds.standardized.insetBy(dx: -500, dy: -500)
+        let bubbleClipPath = CGMutablePath()
+        bubbleClipPath.addRect(clipRect2)
+        bubbleClipPath.addPath(tailFillPath)
+        context.addPath(bubbleClipPath)
+        context.clip(using: .evenOdd)
+
         context.addPath(bubblePath)
         context.setStrokeColor(style.strokeColor.cgColor)
         context.setLineWidth(style.strokeWidth)
         style.dashPattern.apply(to: context)
         context.strokePath()
+        context.restoreGState()
 
-        // Stroke tail (only the two outer edges, not the base that overlaps with bubble)
-        context.addPath(tailPath)
-        context.setStrokeColor(style.strokeColor.cgColor)
-        context.setLineWidth(style.strokeWidth)
-        style.dashPattern.apply(to: context)
-        context.strokePath()
+        context.endTransparencyLayer()
 
         context.restoreGState()
 
@@ -87,6 +105,20 @@ final class SpeechBubbleAnnotation: Annotation {
         drawText(in: context)
 
         drawSelectionHandles(in: context)
+
+        if isSelected {
+            context.saveGState()
+            let handleSize: CGFloat = 8
+            let handleRect = CGRect(x: tailPoint.x - handleSize / 2,
+                                    y: tailPoint.y - handleSize / 2,
+                                    width: handleSize, height: handleSize)
+            context.setFillColor(NSColor.controlAccentColor.cgColor)
+            context.fillEllipse(in: handleRect)
+            context.setStrokeColor(NSColor.white.cgColor)
+            context.setLineWidth(1)
+            context.strokeEllipse(in: handleRect)
+            context.restoreGState()
+        }
     }
 
     func hitTest(point: CGPoint) -> Bool {
@@ -98,7 +130,7 @@ final class SpeechBubbleAnnotation: Annotation {
     }
 
     func copy() -> Annotation {
-        SpeechBubbleAnnotation(bounds: bounds, style: style, text: text, tailPoint: tailPoint)
+        SpeechBubbleAnnotation(bounds: bounds, style: style, text: text, tailPoint: tailPoint, cornerRadius: cornerRadius)
     }
 
     // MARK: - Text rendering (uses bold/italic/alignment from iteration 2)
@@ -106,7 +138,7 @@ final class SpeechBubbleAnnotation: Annotation {
     private func drawText(in context: CGContext) {
         context.saveGState()
 
-        let textInset = bounds.insetBy(dx: 6, dy: 4)
+        let textInset = bounds.standardized.insetBy(dx: 6, dy: 4)
         guard textInset.width > 0 && textInset.height > 0 else {
             context.restoreGState()
             return
@@ -151,13 +183,11 @@ final class SpeechBubbleAnnotation: Annotation {
         case .top:
             break
         case .center:
-            let yOffset = max(0, (localRect.height - textSize.height) / 2)
-            drawRect.origin.y = yOffset
-            drawRect.size.height = localRect.height - yOffset
+            let targetHeight = min(localRect.height, (localRect.height + textSize.height) / 2)
+            drawRect.size.height = targetHeight
         case .bottom:
-            let yOffset = max(0, localRect.height - textSize.height)
-            drawRect.origin.y = yOffset
-            drawRect.size.height = localRect.height - yOffset
+            let targetHeight = min(localRect.height, textSize.height)
+            drawRect.size.height = targetHeight
         }
 
         let textPath = CGPath(rect: drawRect, transform: nil)
@@ -193,55 +223,60 @@ final class SpeechBubbleAnnotation: Annotation {
     // MARK: - Path construction
 
     private func buildBubblePath() -> CGPath {
-        let cr = cornerRadius
-        if cr <= 0 {
-            return CGPath(rect: bounds, transform: nil)
+        let rect = bounds.standardized
+        let effectiveRadius = min(cornerRadius, min(rect.width, rect.height) / 2)
+        if effectiveRadius <= 0 {
+            return CGPath(rect: rect, transform: nil)
         }
-        return CGPath(roundedRect: bounds, cornerWidth: cr, cornerHeight: cr, transform: nil)
+        return CGPath(roundedRect: rect, cornerWidth: effectiveRadius, cornerHeight: effectiveRadius, transform: nil)
     }
 
-    /// Determines the nearest edge anchor points for the tail base.
-    /// Picks the edge (top/bottom/left/right) nearest to the tail tip.
+    /// Computes tail base points at the bubble center, perpendicular to the
+    /// center→tailPoint direction. Matches the original Greenshot Windows
+    /// approach: the triangle rotates smoothly as the tail tip moves.
     private func tailBasePoints() -> (CGPoint, CGPoint) {
         let tw = tailWidth
-        let tp = tailPoint
+        let rect = bounds.standardized
+        let center = CGPoint(x: rect.midX, y: rect.midY)
 
-        // Determine which edge the tail is closest to
-        let distTop = abs(tp.y - bounds.minY)
-        let distBottom = abs(tp.y - bounds.maxY)
-        let distLeft = abs(tp.x - bounds.minX)
-        let distRight = abs(tp.x - bounds.maxX)
+        let dx = tailPoint.x - center.x
+        let dy = tailPoint.y - center.y
+        let angle = atan2(dy, dx)
 
-        let minDist = min(distTop, distBottom, distLeft, distRight)
+        // Perpendicular direction to center→tailPoint
+        let perpX = -sin(angle)
+        let perpY =  cos(angle)
 
-        if minDist == distBottom {
-            let center = CGPoint(x: bounds.midX, y: bounds.maxY)
-            return (CGPoint(x: center.x - tw / 2, y: center.y),
-                    CGPoint(x: center.x + tw / 2, y: center.y))
-        } else if minDist == distTop {
-            let center = CGPoint(x: bounds.midX, y: bounds.minY)
-            return (CGPoint(x: center.x - tw / 2, y: center.y),
-                    CGPoint(x: center.x + tw / 2, y: center.y))
-        } else if minDist == distLeft {
-            let center = CGPoint(x: bounds.minX, y: bounds.midY)
-            return (CGPoint(x: center.x, y: center.y - tw / 2),
-                    CGPoint(x: center.x, y: center.y + tw / 2))
-        } else {
-            let center = CGPoint(x: bounds.maxX, y: bounds.midY)
-            return (CGPoint(x: center.x, y: center.y - tw / 2),
-                    CGPoint(x: center.x, y: center.y + tw / 2))
-        }
+        let baseLeft = CGPoint(
+            x: center.x + perpX * (tw / 2),
+            y: center.y + perpY * (tw / 2)
+        )
+        let baseRight = CGPoint(
+            x: center.x - perpX * (tw / 2),
+            y: center.y - perpY * (tw / 2)
+        )
+
+        return (baseLeft, baseRight)
     }
 
-    private func buildTailPath() -> CGPath {
+    /// Closed tail triangle for filling (base + two outer edges).
+    private func buildTailFillPath() -> CGPath {
         let path = CGMutablePath()
         let (tailLeft, tailRight) = tailBasePoints()
-
         path.move(to: tailLeft)
         path.addLine(to: tailPoint)
         path.addLine(to: tailRight)
         path.closeSubpath()
+        return path
+    }
 
+    /// Open tail path for stroking — only the two outer edges, no base line.
+    private func buildTailStrokePath() -> CGPath {
+        let path = CGMutablePath()
+        let (tailLeft, tailRight) = tailBasePoints()
+        path.move(to: tailLeft)
+        path.addLine(to: tailPoint)
+        path.addLine(to: tailRight)
         return path
     }
 

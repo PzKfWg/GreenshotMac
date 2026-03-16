@@ -6,11 +6,17 @@ enum FileExporter {
     enum ImageFormat: String, CaseIterable, Sendable {
         case png = "PNG"
         case jpeg = "JPEG"
+        case gif = "GIF"
+        case bmp = "BMP"
+        case tiff = "TIFF"
 
         var utType: UTType {
             switch self {
             case .png: return .png
             case .jpeg: return .jpeg
+            case .gif: return .gif
+            case .bmp: return .bmp
+            case .tiff: return .tiff
             }
         }
 
@@ -18,6 +24,9 @@ enum FileExporter {
             switch self {
             case .png: return "png"
             case .jpeg: return "jpg"
+            case .gif: return "gif"
+            case .bmp: return "bmp"
+            case .tiff: return "tiff"
             }
         }
 
@@ -25,13 +34,16 @@ enum FileExporter {
             switch self {
             case .png: return .png
             case .jpeg: return .jpeg
+            case .gif: return .gif
+            case .bmp: return .bmp
+            case .tiff: return .tiff
             }
         }
     }
 
     static func save(image: NSImage, suggestedName: String? = nil, from window: NSWindow?) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.png, .jpeg]
+        panel.allowedContentTypes = ImageFormat.allCases.map { $0.utType }
         panel.nameFieldStringValue = suggestedName ?? defaultFilename()
         panel.canCreateDirectories = true
 
@@ -61,8 +73,15 @@ enum FileExporter {
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData) else { return false }
 
-        let format: ImageFormat = url.pathExtension.lowercased() == "jpg" || url.pathExtension.lowercased() == "jpeg"
-            ? .jpeg : .png
+        let ext = url.pathExtension.lowercased()
+        let format: ImageFormat
+        switch ext {
+        case "jpg", "jpeg": format = .jpeg
+        case "gif": format = .gif
+        case "bmp": format = .bmp
+        case "tiff", "tif": format = .tiff
+        default: format = .png
+        }
 
         let properties: [NSBitmapImageRep.PropertyKey: Any] = format == .jpeg
             ? [.compressionFactor: 0.9]
@@ -80,7 +99,7 @@ enum FileExporter {
 
     private static func defaultFilename() -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        return "Annotated \(formatter.string(from: Date()))"
+        formatter.dateFormat = "yyyy-MM-dd 'à' HH.mm.ss"
+        return "Annoté \(formatter.string(from: Date()))"
     }
 }

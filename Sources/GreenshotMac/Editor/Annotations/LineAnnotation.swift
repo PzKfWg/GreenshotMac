@@ -34,11 +34,13 @@ final class LineAnnotation: Annotation {
 
     func draw(in context: CGContext) {
         context.saveGState()
+        context.setAlpha(style.opacity)
         style.shadow.apply(to: context)
 
         context.setStrokeColor(style.strokeColor.cgColor)
         context.setLineWidth(style.strokeWidth)
         context.setLineCap(.round)
+        style.dashPattern.apply(to: context)
 
         context.move(to: startPoint)
         context.addLine(to: endPoint)

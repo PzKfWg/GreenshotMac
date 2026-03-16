@@ -14,6 +14,7 @@ final class EllipseAnnotation: Annotation {
 
     func draw(in context: CGContext) {
         context.saveGState()
+        context.setAlpha(style.opacity)
         style.shadow.apply(to: context)
 
         let rect = bounds
@@ -27,6 +28,7 @@ final class EllipseAnnotation: Annotation {
         // Stroke
         context.setStrokeColor(style.strokeColor.cgColor)
         context.setLineWidth(style.strokeWidth)
+        style.dashPattern.apply(to: context)
         context.strokeEllipse(in: rect)
 
         context.restoreGState()

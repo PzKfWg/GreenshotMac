@@ -86,31 +86,27 @@ final class SpeechBubbleAnnotationTests: XCTestCase {
         XCTAssertFalse(bubble.style.shadow.enabled)
     }
 
-    // MARK: - Adaptive corner radius (aligned with Greenshot Windows)
+    // MARK: - Corner radius (configurable stored property)
 
-    func testCornerRadiusAdaptiveToSmallSide() {
-        // min(30, smallerSide/2 - strokeWidth)
-        // smallerSide = 80, strokeWidth = 2 → min(30, 38) = 30
+    func testCornerRadiusDefault() {
         let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 0, y: 0, width: 200, height: 80))
-        XCTAssertEqual(bubble.cornerRadius, 30.0)
+        XCTAssertEqual(bubble.cornerRadius, 20.0)
     }
 
-    func testCornerRadiusCapsAt30() {
-        // Large bubble — should cap at 30
-        let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 0, y: 0, width: 400, height: 300))
-        XCTAssertEqual(bubble.cornerRadius, 30.0)
+    func testCornerRadiusCustomValue() {
+        let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 0, y: 0, width: 200, height: 80), cornerRadius: 10)
+        XCTAssertEqual(bubble.cornerRadius, 10.0)
     }
 
-    func testCornerRadiusReducesForSmallBubble() {
-        // smallerSide = 30, strokeWidth = 2 → min(30, 13) = 13
-        let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 0, y: 0, width: 100, height: 30))
-        XCTAssertEqual(bubble.cornerRadius, 13.0)
-    }
-
-    func testCornerRadiusZeroForTinyBubble() {
-        // smallerSide = 4, strokeWidth = 2 → min(30, 0) = 0
-        let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 0, y: 0, width: 4, height: 4))
+    func testCornerRadiusZero() {
+        let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 0, y: 0, width: 200, height: 80), cornerRadius: 0)
         XCTAssertEqual(bubble.cornerRadius, 0.0)
+    }
+
+    func testCornerRadiusPreservedOnCopy() {
+        let bubble = SpeechBubbleAnnotation(bounds: CGRect(x: 0, y: 0, width: 200, height: 80), cornerRadius: 15)
+        let copy = bubble.copy() as! SpeechBubbleAnnotation
+        XCTAssertEqual(copy.cornerRadius, 15.0)
     }
 
     // MARK: - Tail width (aligned with Greenshot Windows formula)

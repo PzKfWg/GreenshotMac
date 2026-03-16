@@ -23,6 +23,10 @@ final class Preferences {
         static let defaultOpacity = "defaultOpacity"
         static let defaultTextAlignment = "defaultTextAlignment"
         static let lastUsedTool = "lastUsedTool"
+        static let defaultCornerRadius = "defaultCornerRadius"
+        static let defaultPixelSize = "defaultPixelSize"
+        static let defaultBlurRadius = "defaultBlurRadius"
+        static let defaultTextVerticalAlignment = "defaultTextVerticalAlignment"
     }
 
     var screenshotFolder: String {
@@ -130,6 +134,38 @@ final class Preferences {
     var lastUsedTool: String? {
         get { defaults.string(forKey: Keys.lastUsedTool) }
         set { defaults.set(newValue, forKey: Keys.lastUsedTool) }
+    }
+
+    var defaultCornerRadius: CGFloat {
+        get {
+            let val = defaults.double(forKey: Keys.defaultCornerRadius)
+            return val >= 0 ? val : 0
+        }
+        set { defaults.set(newValue, forKey: Keys.defaultCornerRadius) }
+    }
+
+    var defaultPixelSize: Int {
+        get {
+            let val = defaults.integer(forKey: Keys.defaultPixelSize)
+            return val > 0 ? val : 5
+        }
+        set { defaults.set(newValue, forKey: Keys.defaultPixelSize) }
+    }
+
+    var defaultBlurRadius: Int {
+        get {
+            let val = defaults.integer(forKey: Keys.defaultBlurRadius)
+            return val > 0 ? val : 10
+        }
+        set { defaults.set(newValue, forKey: Keys.defaultBlurRadius) }
+    }
+
+    var defaultTextVerticalAlignment: Int {
+        get {
+            let val = defaults.integer(forKey: Keys.defaultTextVerticalAlignment)
+            return (0...2).contains(val) ? val : 1
+        }
+        set { defaults.set(newValue, forKey: Keys.defaultTextVerticalAlignment) }
     }
 
     private init() {}

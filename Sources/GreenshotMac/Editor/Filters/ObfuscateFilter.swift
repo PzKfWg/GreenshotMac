@@ -2,12 +2,12 @@ import AppKit
 import CoreImage
 
 @MainActor
-final class PixelateFilter: Annotation {
+final class ObfuscateFilter: Annotation {
     let id = UUID()
     var bounds: CGRect
     var style: AnnotationStyle
     var isSelected: Bool = false
-    var pixelSize: Int = 5
+    var blurRadius: Int = 10
     weak var backgroundImage: NSImage?
 
     private static let ciContext = CIContext()
@@ -21,13 +21,12 @@ final class PixelateFilter: Annotation {
         let rect = bounds.standardized
         guard rect.width > 0, rect.height > 0 else { return }
 
-        if let bgImage = backgroundImage, pixelSize > 1 {
-            drawPixelated(in: context, rect: rect, bgImage: bgImage)
+        if let bgImage = backgroundImage, blurRadius > 0 {
+            drawBlurred(in: context, rect: rect, bgImage: bgImage)
         } else {
             drawPlaceholder(in: context, rect: rect)
         }
 
-        // Show dashed border only when selected
         if isSelected {
             context.saveGState()
             context.setStrokeColor(NSColor.gray.withAlphaComponent(0.6).cgColor)
@@ -40,13 +39,7 @@ final class PixelateFilter: Annotation {
         drawSelectionHandles(in: context)
     }
 
-    private func drawPixelated(in context: CGContext, rect: CGRect, bgImage: NSImage) {
-        // Adapt pixelSize to bounds (like C# reference)
-        var effectiveSize = pixelSize
-        if Int(rect.width) < effectiveSize { effectiveSize = max(1, Int(rect.width)) }
-        if Int(rect.height) < effectiveSize { effectiveSize = max(1, Int(rect.height)) }
-        guard effectiveSize > 1 else { return }
-
+    private func drawBlurred(in context: CGContext, rect: CGRect, bgImage: NSImage) {
         guard let cgImage = bgImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             drawPlaceholder(in: context, rect: rect)
             return
@@ -72,13 +65,12 @@ final class PixelateFilter: Annotation {
 
         let croppedCI = fullCI.cropped(to: ciCropRect)
 
-        guard let filter = CIFilter(name: "CIPixellate") else {
+        guard let filter = CIFilter(name: "CIGaussianBlur") else {
             drawPlaceholder(in: context, rect: rect)
             return
         }
         filter.setValue(croppedCI, forKey: kCIInputImageKey)
-        filter.setValue(NSNumber(value: effectiveSize), forKey: kCIInputScaleKey)
-        filter.setValue(CIVector(x: ciCropRect.midX, y: ciCropRect.midY), forKey: kCIInputCenterKey)
+        filter.setValue(NSNumber(value: blurRadius), forKey: kCIInputRadiusKey)
 
         guard let output = filter.outputImage else {
             drawPlaceholder(in: context, rect: rect)
@@ -103,32 +95,18 @@ final class PixelateFilter: Annotation {
 
     private func drawPlaceholder(in context: CGContext, rect: CGRect) {
         context.saveGState()
-        context.setFillColor(NSColor.gray.withAlphaComponent(0.15).cgColor)
+        context.setFillColor(NSColor.gray.withAlphaComponent(0.2).cgColor)
         context.fill(rect)
-
-        let gridSize: CGFloat = 8
-        context.setStrokeColor(NSColor.gray.withAlphaComponent(0.3).cgColor)
-        context.setLineWidth(0.5)
-
-        var x = rect.minX
-        while x <= rect.maxX {
-            context.move(to: CGPoint(x: x, y: rect.minY))
-            context.addLine(to: CGPoint(x: x, y: rect.maxY))
-            x += gridSize
-        }
-        var y = rect.minY
-        while y <= rect.maxY {
-            context.move(to: CGPoint(x: rect.minX, y: y))
-            context.addLine(to: CGPoint(x: rect.maxX, y: y))
-            y += gridSize
-        }
-        context.strokePath()
         context.restoreGState()
     }
 
+    func hitTest(point: CGPoint) -> Bool {
+        bounds.insetBy(dx: -4, dy: -4).contains(point)
+    }
+
     func copy() -> Annotation {
-        let c = PixelateFilter(bounds: bounds, style: style)
-        c.pixelSize = pixelSize
+        let c = ObfuscateFilter(bounds: bounds, style: style)
+        c.blurRadius = blurRadius
         return c
     }
 }

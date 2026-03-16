@@ -16,7 +16,22 @@ final class TextAnnotation: Annotation {
 
     func draw(in context: CGContext) {
         context.saveGState()
+        context.setAlpha(style.opacity)
         style.shadow.apply(to: context)
+
+        // Draw background fill if set
+        if style.fillColor != .clear {
+            context.setFillColor(style.fillColor.cgColor)
+            context.fill(bounds)
+        }
+
+        // Draw border if stroke width > 0
+        if style.strokeWidth > 0 {
+            context.setStrokeColor(style.strokeColor.cgColor)
+            context.setLineWidth(style.strokeWidth)
+            style.dashPattern.apply(to: context)
+            context.stroke(bounds)
+        }
 
         let font = resolveFont()
         let paragraphStyle = NSMutableParagraphStyle()
@@ -26,11 +41,14 @@ final class TextAnnotation: Annotation {
         case .right:  paragraphStyle.alignment = .right
         }
 
-        let attrs: [NSAttributedString.Key: Any] = [
+        var attrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: style.strokeColor,
             .paragraphStyle: paragraphStyle
         ]
+        if style.fontUnderline {
+            attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        }
         let attrString = NSAttributedString(string: text, attributes: attrs)
         let framesetter = CTFramesetterCreateWithAttributedString(attrString)
 
@@ -54,13 +72,14 @@ final class TextAnnotation: Annotation {
         case .top:
             break // default CoreText behavior (top-aligned in flipped coords)
         case .center:
-            let yOffset = max(0, (localRect.height - textSize.height) / 2)
-            drawRect.origin.y = yOffset
-            drawRect.size.height = localRect.height - yOffset
+            // In non-flipped CoreText coords, text draws from the TOP of the frame downward.
+            // To center: reduce frame height so its top edge is at the vertical center.
+            let targetHeight = min(localRect.height, (localRect.height + textSize.height) / 2)
+            drawRect.size.height = targetHeight
         case .bottom:
-            let yOffset = max(0, localRect.height - textSize.height)
-            drawRect.origin.y = yOffset
-            drawRect.size.height = localRect.height - yOffset
+            // To bottom-align: set frame height to text height so text sits at the bottom.
+            let targetHeight = min(localRect.height, textSize.height)
+            drawRect.size.height = targetHeight
         }
 
         let path = CGPath(rect: drawRect, transform: nil)

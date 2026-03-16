@@ -102,10 +102,11 @@ final class AnnotationToolCapabilityTests: XCTestCase {
 
     func testCornerRadiusSupportedTools() {
         XCTAssertTrue(AnnotationTool.rectangle.supportsCornerRadius)
+        XCTAssertTrue(AnnotationTool.speechBubble.supportsCornerRadius)
     }
 
     func testCornerRadiusUnsupportedTools() {
-        let unsupported: [AnnotationTool] = [.select, .ellipse, .line, .arrow, .freehand, .text, .speechBubble, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
+        let unsupported: [AnnotationTool] = [.select, .ellipse, .line, .arrow, .freehand, .text, .stepLabel, .pixelate, .highlight, .obfuscate, .crop]
         for tool in unsupported {
             XCTAssertFalse(tool.supportsCornerRadius, "\(tool) should not support corner radius")
         }

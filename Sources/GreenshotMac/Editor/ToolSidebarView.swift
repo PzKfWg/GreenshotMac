@@ -9,16 +9,17 @@ protocol ToolSidebarDelegate: AnyObject {
 final class ToolSidebarView: NSView {
     weak var delegate: ToolSidebarDelegate?
 
-    private var buttons: [AnnotationTool: NSButton] = [:]
+    var buttons: [AnnotationTool: NSButton] = [:]
 
     private static let toolRows: [[(tool: AnnotationTool, icon: String, label: String)]] = [
-        [(.select, "arrow.uturn.left.circle", "Select"), (.rectangle, "rectangle", "Rectangle")],
-        [(.ellipse, "circle", "Ellipse"), (.line, "line.diagonal", "Line")],
-        [(.arrow, "arrow.right", "Arrow"), (.text, "textformat", "Text")],
-        [(.speechBubble, "bubble.left", "Bubble"), (.stepLabel, "number.circle", "Step")],
-        // separator
-        [(.pixelate, "squareshape.split.3x3", "Pixelate"), (.highlight, "highlighter", "Highlight")],
-        [(.crop, "crop", "Crop")],
+        [(.select, "arrow.uturn.left.circle", "Sélection (1)"), (.rectangle, "rectangle", "Rectangle (2)")],
+        [(.ellipse, "circle", "Ellipse (3)"), (.line, "line.diagonal", "Ligne (4)")],
+        [(.arrow, "arrow.right", "Flèche (5)"), (.text, "textformat", "Texte (6)")],
+        [(.speechBubble, "bubble.left", "Bulle (7)"), (.stepLabel, "number.circle", "Étape (8)")],
+        // séparateur
+        [(.freehand, "pencil.tip", "Crayon"), (.pixelate, "squareshape.split.3x3", "Pixeliser (9)")],
+        [(.highlight, "highlighter", "Surligner (0)"), (.obfuscate, "eye.slash", "Flouter")],
+        [(.crop, "crop", "Recadrer")],
     ]
 
     private static let separatorAfterRow = 3
@@ -82,7 +83,7 @@ final class ToolSidebarView: NSView {
         }
 
         // Select the select tool by default
-        buttons[.select]?.state = .on
+        selectTool(.select)
     }
 
     private func makeToolButton(tool: AnnotationTool, icon: String, label: String) -> NSButton {
@@ -95,13 +96,15 @@ final class ToolSidebarView: NSView {
         button.tag = AnnotationTool.allCases.firstIndex(of: tool) ?? 0
         button.target = self
         button.action = #selector(toolButtonClicked(_:))
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 6
         button.translatesAutoresizingMaskIntoConstraints = false
         button.widthAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
         button.heightAnchor.constraint(equalToConstant: 32).isActive = true
         return button
     }
 
-    @objc private func toolButtonClicked(_ sender: NSButton) {
+    @objc func toolButtonClicked(_ sender: NSButton) {
         let tool = AnnotationTool.allCases[sender.tag]
         selectTool(tool)
         delegate?.toolSidebar(self, didSelectTool: tool)
@@ -109,7 +112,11 @@ final class ToolSidebarView: NSView {
 
     func selectTool(_ tool: AnnotationTool) {
         for (t, button) in buttons {
-            button.state = (t == tool) ? .on : .off
+            let selected = (t == tool)
+            button.state = selected ? .on : .off
+            button.layer?.backgroundColor = selected
+                ? NSColor.controlAccentColor.withAlphaComponent(0.25).cgColor
+                : nil
         }
     }
 }

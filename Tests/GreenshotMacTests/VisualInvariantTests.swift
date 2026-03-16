@@ -168,6 +168,10 @@ final class VisualInvariantTests: XCTestCase {
                 }
                 style.fillColor = color
                 style.shadow = .none
+                // For text-based tools, pin text to top so it doesn't cover the center pixel
+                if tool == .text || tool == .speechBubble {
+                    style.textVerticalAlignment = .top
+                }
 
                 guard let annotation = makeAnnotation(tool: tool, style: style) else { continue }
 
@@ -204,6 +208,10 @@ final class VisualInvariantTests: XCTestCase {
             var style = AnnotationStyle()
             style.fillColor = .clear
             style.shadow = .none
+            // For text-based tools, pin text to top so it doesn't cover the center pixel
+            if tool == .text {
+                style.textVerticalAlignment = .top
+            }
 
             guard let annotation = makeAnnotation(tool: tool, style: style) else { continue }
             assertTransparentCenter(annotation)
