@@ -151,10 +151,10 @@ final class ImprovementLoopTests: XCTestCase {
         XCTAssertTrue(AnnotationTool.stepLabel.supportsFillColor)
     }
 
-    func testStepLabelDefaultFillColorIsDarkRed() {
+    func testStepLabelDefaultBackgroundIsDarkRed() {
         let step = StepLabelAnnotation(center: CGPoint(x: 50, y: 50))
-        // Default dark red: (0.55, 0, 0, 1)
-        XCTAssertNotEqual(step.style.fillColor, NSColor.clear)
+        // strokeColor is the circle background (DarkRed)
+        XCTAssertNotEqual(step.style.strokeColor, NSColor.clear)
     }
 
     // MARK: - Loop 6: Highlight filter

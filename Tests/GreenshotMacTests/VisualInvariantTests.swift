@@ -129,10 +129,10 @@ final class VisualInvariantTests: XCTestCase {
                 }
 
                 if tool == .stepLabel {
-                    // StepLabel center is covered by the number text (in strokeColor=white).
-                    // Use a larger circle (80px) and check the fill ratio of the entire circle.
+                    // StepLabel: strokeColor = circle background, fillColor = text color.
+                    // Use a larger circle (80px) and check the background color near edges.
                     var s = StepLabelAnnotation.defaultStyle
-                    s.fillColor = color
+                    s.strokeColor = color
                     StepLabelAnnotation.setCounter(to: 1)
                     let center = CGPoint(x: 200, y: 150)
                     let ann = StepLabelAnnotation(center: center, style: s)

@@ -10,6 +10,13 @@ let package = Package(
         .executableTarget(
             name: "GreenshotMac",
             path: "Sources/GreenshotMac",
+            exclude: [
+                "Resources/AppIcon.iconset",
+                "Resources/Info.plist"
+            ],
+            resources: [
+                .copy("Resources/AppIcon.icns")
+            ],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("CoreImage"),

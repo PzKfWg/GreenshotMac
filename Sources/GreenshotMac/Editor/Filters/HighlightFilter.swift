@@ -12,6 +12,7 @@ final class HighlightFilter: Annotation {
         if var style {
             // Spec §5.2: shadow is always disabled on highlights
             style.shadow = .none
+            style.strokeWidth = 0
             self.style = style
         } else {
             var defaultStyle = AnnotationStyle()
@@ -37,13 +38,6 @@ final class HighlightFilter: Annotation {
         context.setFillColor(style.fillColor.cgColor)
         context.fill(rect)
         context.setBlendMode(.normal)
-
-        // Optional stroke/outline
-        if style.strokeColor != .clear && style.strokeWidth > 0 {
-            context.setStrokeColor(style.strokeColor.cgColor)
-            context.setLineWidth(style.strokeWidth)
-            context.stroke(rect)
-        }
 
         context.restoreGState()
 

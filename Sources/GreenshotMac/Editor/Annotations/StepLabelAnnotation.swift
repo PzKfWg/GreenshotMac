@@ -22,12 +22,12 @@ final class StepLabelAnnotation: Annotation {
         nextStepNumber
     }
 
-    /// Default style for step labels, aligned with Greenshot Windows:
-    /// DarkRed fill, white text, no border (lineThickness=0), no shadow
+    /// Default style for step labels:
+    /// strokeColor = circle background (DarkRed), fillColor = number text color (white), no shadow
     static var defaultStyle: AnnotationStyle {
         var s = AnnotationStyle()
-        s.fillColor = NSColor(red: 0.55, green: 0, blue: 0, alpha: 1) // DarkRed
-        s.strokeColor = .white // number color
+        s.strokeColor = NSColor(red: 0.55, green: 0, blue: 0, alpha: 1) // DarkRed background
+        s.fillColor = .white // number text color
         s.shadow = .none
         return s
     }
@@ -56,26 +56,20 @@ final class StepLabelAnnotation: Annotation {
         context.setAlpha(style.opacity)
         style.shadow.apply(to: context)
 
-        let fillColor = style.fillColor == .clear ? NSColor.systemRed : style.fillColor
-        context.setFillColor(fillColor.cgColor)
+        // strokeColor controls the circle background
+        let bgColor = style.strokeColor == .clear ? NSColor.systemRed : style.strokeColor
+        context.setFillColor(bgColor.cgColor)
         context.fillEllipse(in: bounds)
-
-        // Optional border ring (when strokeWidth > 0)
-        if style.strokeWidth > 0 {
-            context.setStrokeColor(style.strokeColor.cgColor)
-            context.setLineWidth(style.strokeWidth)
-            context.strokeEllipse(in: bounds)
-        }
 
         context.restoreGState()
 
         // Draw the number centered in the circle with auto-scaled font
-        // Matching Greenshot Windows: font size adapts to circle diameter
+        // fillColor controls the number text color
         let numStr = "\(stepNumber)" as NSString
         let fontSize = autoScaledFontSize(for: numStr as String)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.boldSystemFont(ofSize: fontSize),
-            .foregroundColor: style.strokeColor
+            .foregroundColor: style.fillColor
         ]
         let size = numStr.size(withAttributes: attrs)
         let textOrigin = CGPoint(
@@ -104,23 +98,24 @@ final class StepLabelAnnotation: Annotation {
 
     // MARK: - Font auto-scaling
 
-    /// Calculates the font size to fit the text inside the circle,
-    /// matching Greenshot Windows StepLabelContainer algorithm.
+    /// Calculates the font size so the text always fits inside the circle.
+    /// Uses the inscribed square (~70% of diameter) as the max text extent.
     func autoScaledFontSize(for text: String) -> CGFloat {
         let diameter = min(bounds.width, bounds.height)
         guard diameter > 0 else { return style.fontSize }
 
-        // Start with diameter as initial size, then scale down to fit
-        let initialSize = diameter
-        let testFont = NSFont.boldSystemFont(ofSize: initialSize)
+        let maxExtent = diameter * 0.70 // inscribed square side ≈ d/√2 ≈ 0.707
+        let testSize: CGFloat = 100 // reference size for measuring
+        let testFont = NSFont.boldSystemFont(ofSize: testSize)
         let testStr = text as NSString
         let textSize = testStr.size(withAttributes: [.font: testFont])
 
-        guard textSize.width > 0 else { return initialSize }
+        guard textSize.width > 0, textSize.height > 0 else { return testSize }
 
-        // Scale factor: fit text within ~70% of circle diameter
-        // (0.7 matches Greenshot Windows optimization factor)
-        let scaleFactor = (textSize.height / textSize.width) * 0.7
-        return max(8, initialSize * scaleFactor)
+        // Scale so both width and height fit within maxExtent
+        let scaleW = maxExtent / textSize.width
+        let scaleH = maxExtent / textSize.height
+        let fontSize = testSize * min(scaleW, scaleH)
+        return max(8, fontSize)
     }
 }

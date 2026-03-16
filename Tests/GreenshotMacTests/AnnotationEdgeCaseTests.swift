@@ -358,11 +358,10 @@ final class StepLabelExtendedTests: XCTestCase {
         XCTAssertEqual(step2.stepNumber, 2)
     }
 
-    func testDefaultFillColorIsDarkRed() {
-        // Default style uses DarkRed fill, aligned with Greenshot Windows
+    func testDefaultBackgroundColorIsDarkRed() {
+        // strokeColor is the circle background (DarkRed)
         let step = StepLabelAnnotation(center: CGPoint(x: 100, y: 100))
-        XCTAssertNotEqual(step.style.fillColor, .clear)
-        // The draw() method uses the fill color directly (DarkRed)
+        XCTAssertNotEqual(step.style.strokeColor, .clear)
     }
 
     func testCustomFillColorPreserved() {

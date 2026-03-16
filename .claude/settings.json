@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ONEDRIVE=\"/Users/francislaurin/Library/CloudStorage/OneDrive-FrancisLaurin/Travail autonome/Outils et références/.claude\")",
+      "Bash(cp ~/.claude/CLAUDE.md \"$ONEDRIVE/\")",
+      "Bash(cp ~/.claude/settings.json \"$ONEDRIVE/\")",
+      "Bash(cp -R ~/.claude/skills \"$ONEDRIVE/\")",
+      "Bash(cp -R ~/.claude/plugins \"$ONEDRIVE/\")",
+      "Bash(rm ~/.claude/CLAUDE.md)",
+      "Bash(ln -s \"$ONEDRIVE/CLAUDE.md\" ~/.claude/CLAUDE.md)",
+      "Bash(rm ~/.claude/settings.json)",
+      "Bash(ln -s \"$ONEDRIVE/settings.json\" ~/.claude/settings.json)",
+      "Bash(./scripts/bundle.sh)"
+    ]
+  }
+}

@@ -211,11 +211,13 @@ final class CanvasView: NSView {
 
         let cgContext = nsContext.cgContext
 
-        // Flip coordinate system to match isFlipped=true
+        // Draw background image in the unflipped bitmap context
+        // (NSImage.draw handles orientation correctly when isFlipped matches the context)
+        bgImage.draw(in: CGRect(origin: .zero, size: size))
+
+        // Flip coordinate system for annotations (they use isFlipped=true coordinates)
         cgContext.translateBy(x: 0, y: size.height)
         cgContext.scaleBy(x: 1, y: -1)
-
-        bgImage.draw(in: CGRect(origin: .zero, size: size))
 
         for annotation in annotations {
             if let pf = annotation as? PixelateFilter {
@@ -707,12 +709,13 @@ final class CanvasView: NSView {
             annotation = bubble
         case .stepLabel:
             var stepStyle = currentStyle
-            if stepStyle.fillColor == .clear {
-                stepStyle.fillColor = StepLabelAnnotation.defaultStyle.fillColor
-            }
-            // Use white text by default if stroke is the generic default red
+            // strokeColor = circle background; use default DarkRed if it's the generic default
             if stepStyle.strokeColor == AnnotationStyle().strokeColor {
                 stepStyle.strokeColor = StepLabelAnnotation.defaultStyle.strokeColor
+            }
+            // fillColor = number text color; use default white if clear
+            if stepStyle.fillColor == .clear {
+                stepStyle.fillColor = StepLabelAnnotation.defaultStyle.fillColor
             }
             stepStyle.shadow = StepLabelAnnotation.defaultStyle.shadow
             annotation = StepLabelAnnotation(center: point, style: stepStyle)
