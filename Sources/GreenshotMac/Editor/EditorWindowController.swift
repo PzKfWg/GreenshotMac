@@ -10,29 +10,34 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private let sourceURL: URL?
     private let originalImage: NSImage
 
-    // Style toolbar controls
-    private let strokeColorWell = NSColorWell(style: .minimal)
-    private let fillColorWell = NSColorWell(style: .minimal)
-    private let widthPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let fontSizePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let boldButton = NSButton()
-    private let italicButton = NSButton()
-    private let fontStyleContainer = NSStackView()
-    private let arrowHeadPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let pixelSizePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let blurRadiusPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let dashPatternPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let cornerRadiusPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let opacitySlider = NSSlider(value: 1.0, minValue: 0.1, maxValue: 1.0, target: nil, action: nil)
-    private let fontNamePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let underlineButton = NSButton()
-    private let textAlignPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let startNumberStepper = NSStepper()
-    private let startNumberLabel = NSTextField(labelWithString: "1")
-    private let startNumberContainer = NSStackView()
+    // Style toolbar controls (internal for @testable import)
+    let strokeColorWell = NSColorWell(style: .minimal)
+    let fillColorWell = NSColorWell(style: .minimal)
+    let noStrokeButton = NSButton()
+    let noFillButton = NSButton()
+    let widthPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let fontSizePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let boldButton = NSButton()
+    let italicButton = NSButton()
+    let fontStyleContainer = NSStackView()
+    let arrowHeadPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let pixelSizePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let blurRadiusPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let dashPatternPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let cornerRadiusPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let opacitySlider = NSSlider(value: 1.0, minValue: 0.1, maxValue: 1.0, target: nil, action: nil)
+    let fontNamePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let underlineButton = NSButton()
+    let textAlignPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let textVerticalAlignPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let startNumberStepper = NSStepper()
+    let startNumberLabel = NSTextField(labelWithString: "1")
+    let startNumberContainer = NSStackView()
 
-    private let styleBar = NSStackView()
-    private var isUpdatingControls = false
+    let styleBar = NSStackView()
+    var isUpdatingControls = false
+    var strokeControlGroup: NSView?
+    var fillControlGroup: NSView?
 
     init(image: NSImage, sourceURL: URL?) {
         self.originalImage = image
@@ -143,6 +148,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
         let alignTag = prefs.defaultTextAlignment
         canvasView.currentStyle.textHorizontalAlignment = alignTag == 0 ? .left : (alignTag == 2 ? .right : .center)
+        let vAlignTag = prefs.defaultTextVerticalAlignment
+        canvasView.currentStyle.textVerticalAlignment = vAlignTag == 0 ? .top : (vAlignTag == 2 ? .bottom : .center)
     }
 
     private func setupToolbar() {
@@ -166,8 +173,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         styleBar.wantsLayer = true
         styleBar.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95).cgColor
 
-        styleBar.addArrangedSubview(makeControlGroup("Contour", strokeColorWell))
-        styleBar.addArrangedSubview(makeControlGroup("Fond", fillColorWell))
+        let strokeHStack = NSStackView(views: [strokeColorWell, noStrokeButton])
+        strokeHStack.orientation = .horizontal
+        strokeHStack.spacing = 2
+        let strokeCG = makeControlGroup("Contour", strokeHStack)
+        strokeControlGroup = strokeCG
+        styleBar.addArrangedSubview(strokeCG)
+
+        let fillHStack = NSStackView(views: [fillColorWell, noFillButton])
+        fillHStack.orientation = .horizontal
+        fillHStack.spacing = 2
+        let fillCG = makeControlGroup("Fond", fillHStack)
+        fillControlGroup = fillCG
+        styleBar.addArrangedSubview(fillCG)
         styleBar.addArrangedSubview(makeControlGroup("Épaisseur", widthPopup))
         styleBar.addArrangedSubview(makeControlGroup("Trait", dashPatternPopup))
         styleBar.addArrangedSubview(makeControlGroup("Coins", cornerRadiusPopup))
@@ -175,6 +193,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         styleBar.addArrangedSubview(makeControlGroup("Taille", fontSizePopup))
         styleBar.addArrangedSubview(makeControlGroup("Style", fontStyleContainer))
         styleBar.addArrangedSubview(makeControlGroup("Alignement", textAlignPopup))
+        styleBar.addArrangedSubview(makeControlGroup("Align. vert.", textVerticalAlignPopup))
         styleBar.addArrangedSubview(makeControlGroup("Pointes", arrowHeadPopup))
         styleBar.addArrangedSubview(makeControlGroup("Taille pixel", pixelSizePopup))
         styleBar.addArrangedSubview(makeControlGroup("Flou", blurRadiusPopup))
@@ -205,6 +224,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         fillColorWell.target = self
         fillColorWell.action = #selector(fillColorChanged(_:))
 
+        configureNoClearButton(noStrokeButton, transparent: canvasView.currentStyle.strokeColor.alphaComponent == 0, toolTip: "Transparent (contour)")
+        noStrokeButton.target = self
+        noStrokeButton.action = #selector(noStrokeToggled(_:))
+
+        configureNoClearButton(noFillButton, transparent: canvasView.currentStyle.fillColor.alphaComponent == 0, toolTip: "Transparent (fond)")
+        noFillButton.target = self
+        noFillButton.action = #selector(noFillToggled(_:))
+
         let widths: [CGFloat] = [0, 1, 2, 3, 5, 8, 12]
         for w in widths {
             widthPopup.addItem(withTitle: "\(Int(w)) pt")
@@ -225,7 +252,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         fontSizePopup.toolTip = "Taille de police"
         fontSizePopup.target = self
         fontSizePopup.action = #selector(fontSizeChanged(_:))
-        fontSizePopup.isHidden = true
+        fontSizePopup.isHidden = false
 
         // Bold / Italic toggle buttons
         boldButton.bezelStyle = .toolbar
@@ -248,7 +275,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         fontStyleContainer.spacing = 2
         fontStyleContainer.addArrangedSubview(boldButton)
         fontStyleContainer.addArrangedSubview(italicButton)
-        fontStyleContainer.isHidden = true
+        fontStyleContainer.isHidden = false
 
         // Arrow head style popup
         let arrowHeadItems: [(String, Int)] = [
@@ -261,7 +288,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         arrowHeadPopup.toolTip = "Pointes de flèche"
         arrowHeadPopup.target = self
         arrowHeadPopup.action = #selector(arrowHeadChanged(_:))
-        arrowHeadPopup.isHidden = true
+        arrowHeadPopup.isHidden = false
 
         let pixelSizes = [3, 5, 7, 9, 12, 15, 20]
         for ps in pixelSizes {
@@ -275,7 +302,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         pixelSizePopup.toolTip = "Taille pixel"
         pixelSizePopup.target = self
         pixelSizePopup.action = #selector(pixelSizeChanged(_:))
-        pixelSizePopup.isHidden = true
+        pixelSizePopup.isHidden = false
 
         // Blur radius popup for obfuscate filter
         let blurRadii = [3, 5, 8, 10, 15, 20, 30]
@@ -289,7 +316,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         blurRadiusPopup.toolTip = "Rayon de flou"
         blurRadiusPopup.target = self
         blurRadiusPopup.action = #selector(blurRadiusChanged(_:))
-        blurRadiusPopup.isHidden = true
+        blurRadiusPopup.isHidden = false
 
         // Dash pattern popup (Loop 27)
         let dashItems: [(String, Int)] = [("Continu", 0), ("Tirets", 1), ("Points", 2)]
@@ -300,7 +327,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         dashPatternPopup.toolTip = "Style de trait"
         dashPatternPopup.target = self
         dashPatternPopup.action = #selector(dashPatternChanged(_:))
-        dashPatternPopup.isHidden = true
+        dashPatternPopup.isHidden = false
 
         // Corner radius popup (Loop 28)
         let radii = [0, 5, 10, 15, 20, 30]
@@ -311,13 +338,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         cornerRadiusPopup.toolTip = "Rayon des coins"
         cornerRadiusPopup.target = self
         cornerRadiusPopup.action = #selector(cornerRadiusChanged(_:))
-        cornerRadiusPopup.isHidden = true
+        cornerRadiusPopup.isHidden = false
 
         // Opacity slider (Loop 31)
         opacitySlider.toolTip = "Opacité"
         opacitySlider.target = self
         opacitySlider.action = #selector(opacityChanged(_:))
-        opacitySlider.isHidden = true
+        opacitySlider.isHidden = false
         opacitySlider.controlSize = .small
         opacitySlider.widthAnchor.constraint(equalToConstant: 80).isActive = true
 
@@ -329,7 +356,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         fontNamePopup.toolTip = "Nom de police"
         fontNamePopup.target = self
         fontNamePopup.action = #selector(fontNameChanged(_:))
-        fontNamePopup.isHidden = true
+        fontNamePopup.isHidden = false
         if let item = fontNamePopup.itemArray.first(where: { $0.title == canvasView.currentStyle.fontName }) {
             fontNamePopup.select(item)
         }
@@ -355,7 +382,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         textAlignPopup.toolTip = "Alignement du texte"
         textAlignPopup.target = self
         textAlignPopup.action = #selector(textAlignChanged(_:))
-        textAlignPopup.isHidden = true
+        textAlignPopup.isHidden = false
+
+        // Text vertical alignment popup
+        let vAlignItems: [(String, Int)] = [("Haut", 0), ("Centre", 1), ("Bas", 2)]
+        for (title, tag) in vAlignItems {
+            textVerticalAlignPopup.addItem(withTitle: title)
+            textVerticalAlignPopup.lastItem?.tag = tag
+        }
+        textVerticalAlignPopup.selectItem(at: 1) // Default center
+        textVerticalAlignPopup.toolTip = "Alignement vertical du texte"
+        textVerticalAlignPopup.target = self
+        textVerticalAlignPopup.action = #selector(textVerticalAlignChanged(_:))
+        textVerticalAlignPopup.isHidden = false
 
         // Start number stepper for step labels
         let savedStart = Preferences.shared.stepLabelStartNumber
@@ -375,7 +414,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         startNumberContainer.spacing = 4
         startNumberContainer.addArrangedSubview(startNumberLabel)
         startNumberContainer.addArrangedSubview(startNumberStepper)
-        startNumberContainer.isHidden = true
+        startNumberContainer.isHidden = false
 
         StepLabelAnnotation.setCounter(to: savedStart)
 
@@ -409,21 +448,75 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Style Control Actions
 
-    @objc private func strokeColorChanged(_ sender: NSColorWell) {
+    @objc func strokeColorChanged(_ sender: NSColorWell) {
         guard !isUpdatingControls else { return }
         canvasView.currentStyle.strokeColor = sender.color
+        updateNoClearButton(noStrokeButton, transparent: sender.color.alphaComponent == 0)
         applyStyleToSelectedAnnotation()
         Preferences.shared.defaultStrokeColor = sender.color
     }
 
-    @objc private func fillColorChanged(_ sender: NSColorWell) {
+    @objc func fillColorChanged(_ sender: NSColorWell) {
         guard !isUpdatingControls else { return }
         canvasView.currentStyle.fillColor = sender.color
+        updateNoClearButton(noFillButton, transparent: sender.color.alphaComponent == 0)
         applyStyleToSelectedAnnotation()
         Preferences.shared.defaultFillColor = sender.color
     }
 
-    @objc private func widthChanged(_ sender: NSPopUpButton) {
+    private var lastOpaqueStrokeColor: NSColor = .systemRed
+    private var lastOpaqueFillColor: NSColor = .systemBlue
+
+    @objc func noStrokeToggled(_ sender: NSButton) {
+        guard !isUpdatingControls else { return }
+        let isNowTransparent = sender.state == .on
+        if isNowTransparent {
+            if canvasView.currentStyle.strokeColor.alphaComponent > 0 {
+                lastOpaqueStrokeColor = canvasView.currentStyle.strokeColor
+            }
+            canvasView.currentStyle.strokeColor = .clear
+            strokeColorWell.color = .clear
+        } else {
+            canvasView.currentStyle.strokeColor = lastOpaqueStrokeColor
+            strokeColorWell.color = lastOpaqueStrokeColor
+        }
+        applyStyleToSelectedAnnotation()
+        Preferences.shared.defaultStrokeColor = canvasView.currentStyle.strokeColor
+    }
+
+    @objc func noFillToggled(_ sender: NSButton) {
+        guard !isUpdatingControls else { return }
+        let isNowTransparent = sender.state == .on
+        if isNowTransparent {
+            if canvasView.currentStyle.fillColor.alphaComponent > 0 {
+                lastOpaqueFillColor = canvasView.currentStyle.fillColor
+            }
+            canvasView.currentStyle.fillColor = .clear
+            fillColorWell.color = .clear
+        } else {
+            canvasView.currentStyle.fillColor = lastOpaqueFillColor
+            fillColorWell.color = lastOpaqueFillColor
+        }
+        applyStyleToSelectedAnnotation()
+        Preferences.shared.defaultFillColor = canvasView.currentStyle.fillColor
+    }
+
+    private func configureNoClearButton(_ button: NSButton, transparent: Bool, toolTip: String) {
+        button.setButtonType(.toggle)
+        button.bezelStyle = .toolbar
+        button.image = NSImage(systemSymbolName: "nosign", accessibilityDescription: "Transparent")
+        button.imagePosition = .imageOnly
+        button.toolTip = toolTip
+        button.state = transparent ? .on : .off
+        button.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 24).isActive = true
+    }
+
+    private func updateNoClearButton(_ button: NSButton, transparent: Bool) {
+        button.state = transparent ? .on : .off
+    }
+
+    @objc func widthChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         let width = CGFloat(sender.selectedItem?.tag ?? 2)
         canvasView.currentStyle.strokeWidth = width
@@ -431,7 +524,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         Preferences.shared.defaultStrokeWidth = width
     }
 
-    @objc private func startNumberChanged(_ sender: NSStepper) {
+    @objc func startNumberChanged(_ sender: NSStepper) {
         guard !isUpdatingControls else { return }
         let value = sender.integerValue
         startNumberLabel.stringValue = "\(value)"
@@ -439,7 +532,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         Preferences.shared.stepLabelStartNumber = value
     }
 
-    @objc private func fontSizeChanged(_ sender: NSPopUpButton) {
+    @objc func fontSizeChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         let size = CGFloat(sender.selectedItem?.tag ?? 14)
         canvasView.currentStyle.fontSize = size
@@ -447,21 +540,21 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         Preferences.shared.defaultFontSize = size
     }
 
-    @objc private func boldChanged(_ sender: NSButton) {
+    @objc func boldChanged(_ sender: NSButton) {
         guard !isUpdatingControls else { return }
         canvasView.currentStyle.fontBold = (sender.state == .on)
         applyFontStyleToSelectedAnnotation()
         Preferences.shared.defaultFontBold = canvasView.currentStyle.fontBold
     }
 
-    @objc private func italicChanged(_ sender: NSButton) {
+    @objc func italicChanged(_ sender: NSButton) {
         guard !isUpdatingControls else { return }
         canvasView.currentStyle.fontItalic = (sender.state == .on)
         applyFontStyleToSelectedAnnotation()
         Preferences.shared.defaultFontItalic = canvasView.currentStyle.fontItalic
     }
 
-    @objc private func arrowHeadChanged(_ sender: NSPopUpButton) {
+    @objc func arrowHeadChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         guard let arrow = canvasView.selectedAnnotation as? ArrowAnnotation else { return }
         let oldHeads = arrow.arrowHeads
@@ -482,9 +575,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvasView.needsDisplay = true
     }
 
-    @objc private func blurRadiusChanged(_ sender: NSPopUpButton) {
+    @objc func blurRadiusChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         let newRadius = sender.selectedItem?.tag ?? 10
+        Preferences.shared.defaultBlurRadius = newRadius
         if let of = canvasView.selectedAnnotation as? ObfuscateFilter {
             let oldRadius = of.blurRadius
             of.blurRadius = newRadius
@@ -497,7 +591,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    @objc private func dashPatternChanged(_ sender: NSPopUpButton) {
+    @objc func dashPatternChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         let tag = sender.selectedItem?.tag ?? 0
         let pattern: DashPattern = tag == 1 ? .dashed : (tag == 2 ? .dotted : .solid)
@@ -506,7 +600,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         Preferences.shared.defaultDashPattern = pattern.rawValue
     }
 
-    private func applyDashPatternToSelectedAnnotation(_ pattern: DashPattern) {
+    func applyDashPatternToSelectedAnnotation(_ pattern: DashPattern) {
         guard let annotation = canvasView.selectedAnnotation else { return }
         let tool = toolType(for: annotation)
         guard tool.supportsDashPattern else { return }
@@ -519,9 +613,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    @objc private func cornerRadiusChanged(_ sender: NSPopUpButton) {
+    @objc func cornerRadiusChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         let newRadius = CGFloat(sender.selectedItem?.tag ?? 0)
+        Preferences.shared.defaultCornerRadius = newRadius
         if let rect = canvasView.selectedAnnotation as? RectangleAnnotation {
             let oldRadius = rect.cornerRadius
             rect.cornerRadius = newRadius
@@ -531,10 +626,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                 rect.cornerRadius = newRadius
             }
             canvasView.needsDisplay = true
+        } else if let bubble = canvasView.selectedAnnotation as? SpeechBubbleAnnotation {
+            let oldRadius = bubble.cornerRadius
+            bubble.cornerRadius = newRadius
+            canvasView.annotationUndoManager.recordPropertyChange(bubble) {
+                bubble.cornerRadius = oldRadius
+            } redo: {
+                bubble.cornerRadius = newRadius
+            }
+            canvasView.needsDisplay = true
         }
     }
 
-    @objc private func opacityChanged(_ sender: NSSlider) {
+    @objc func opacityChanged(_ sender: NSSlider) {
         guard !isUpdatingControls else { return }
         let opacity = CGFloat(sender.doubleValue)
         canvasView.currentStyle.opacity = opacity
@@ -551,7 +655,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    @objc private func fontNameChanged(_ sender: NSPopUpButton) {
+    @objc func fontNameChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         let name = sender.selectedItem?.title ?? "Helvetica"
         canvasView.currentStyle.fontName = name
@@ -559,14 +663,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         Preferences.shared.defaultFontName = name
     }
 
-    @objc private func underlineChanged(_ sender: NSButton) {
+    @objc func underlineChanged(_ sender: NSButton) {
         guard !isUpdatingControls else { return }
         canvasView.currentStyle.fontUnderline = (sender.state == .on)
         applyFontStyleToSelectedAnnotation()
         Preferences.shared.defaultFontUnderline = canvasView.currentStyle.fontUnderline
     }
 
-    @objc private func textAlignChanged(_ sender: NSPopUpButton) {
+    @objc func textAlignChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         let tag = sender.selectedItem?.tag ?? 1
         let alignment: TextHorizontalAlignment = tag == 0 ? .left : (tag == 2 ? .right : .center)
@@ -575,7 +679,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         Preferences.shared.defaultTextAlignment = tag
     }
 
-    private func applyFontStyleToSelectedAnnotation() {
+    @objc func textVerticalAlignChanged(_ sender: NSPopUpButton) {
+        guard !isUpdatingControls else { return }
+        let tag = sender.selectedItem?.tag ?? 1
+        let alignment: TextVerticalAlignment = tag == 0 ? .top : (tag == 2 ? .bottom : .center)
+        canvasView.currentStyle.textVerticalAlignment = alignment
+        applyFontStyleToSelectedAnnotation()
+        Preferences.shared.defaultTextVerticalAlignment = tag
+    }
+
+    func applyFontStyleToSelectedAnnotation() {
         guard let annotation = canvasView.selectedAnnotation else { return }
         let tool = toolType(for: annotation)
         guard tool.supportsFontSize || tool.supportsFontStyle else { return }
@@ -589,6 +702,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         annotation.style.fontItalic = canvasView.currentStyle.fontItalic
         annotation.style.fontUnderline = canvasView.currentStyle.fontUnderline
         annotation.style.textHorizontalAlignment = canvasView.currentStyle.textHorizontalAlignment
+        annotation.style.textVerticalAlignment = canvasView.currentStyle.textVerticalAlignment
 
         if annotation.style != oldStyle {
             canvasView.annotationUndoManager.recordModify(annotation, oldBounds: oldBounds, oldStyle: oldStyle)
@@ -606,9 +720,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    @objc private func pixelSizeChanged(_ sender: NSPopUpButton) {
+    @objc func pixelSizeChanged(_ sender: NSPopUpButton) {
         guard !isUpdatingControls else { return }
         let newSize = sender.selectedItem?.tag ?? 5
+        Preferences.shared.defaultPixelSize = newSize
         if let pf = canvasView.selectedAnnotation as? PixelateFilter {
             let oldSize = pf.pixelSize
             pf.pixelSize = newSize
@@ -621,7 +736,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    private func applyStyleToSelectedAnnotation() {
+    func applyStyleToSelectedAnnotation() {
         guard let annotation = canvasView.selectedAnnotation else { return }
         let tool = toolType(for: annotation)
         guard tool.supportsStrokeColor || tool.supportsFillColor || tool.supportsStrokeWidth || tool.supportsShadow else { return }
@@ -650,13 +765,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Style Bar Visibility
 
-    private func updateStyleControls(for tool: AnnotationTool, style: AnnotationStyle) {
+    func updateStyleControls(for tool: AnnotationTool, style: AnnotationStyle) {
         isUpdatingControls = true
         defer { isUpdatingControls = false }
 
         // Hide/show the control groups (parent stack views) in the style bar
-        strokeColorWell.superview?.isHidden = !tool.supportsStrokeColor
-        fillColorWell.superview?.isHidden = !tool.supportsFillColor
+        strokeControlGroup?.isHidden = !tool.supportsStrokeColor
+        fillControlGroup?.isHidden = !tool.supportsFillColor
         widthPopup.superview?.isHidden = !tool.supportsStrokeWidth
         dashPatternPopup.superview?.isHidden = !tool.supportsDashPattern
         cornerRadiusPopup.superview?.isHidden = !tool.supportsCornerRadius
@@ -665,6 +780,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         fontSizePopup.superview?.isHidden = !tool.supportsFontSize
         fontStyleContainer.superview?.isHidden = !tool.supportsFontStyle
         textAlignPopup.superview?.isHidden = !tool.supportsTextAlignment
+        textVerticalAlignPopup.superview?.isHidden = !tool.supportsTextAlignment
         arrowHeadPopup.superview?.isHidden = !tool.supportsArrowHeads
         pixelSizePopup.superview?.isHidden = !tool.supportsPixelSize
         blurRadiusPopup.superview?.isHidden = !tool.supportsBlurRadius
@@ -672,9 +788,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
         if tool.supportsStrokeColor {
             strokeColorWell.color = style.strokeColor
+            updateNoClearButton(noStrokeButton, transparent: style.strokeColor.alphaComponent == 0)
+            if style.strokeColor.alphaComponent > 0 {
+                lastOpaqueStrokeColor = style.strokeColor
+            }
         }
         if tool.supportsFillColor {
             fillColorWell.color = style.fillColor
+            updateNoClearButton(noFillButton, transparent: style.fillColor.alphaComponent == 0)
+            if style.fillColor.alphaComponent > 0 {
+                lastOpaqueFillColor = style.fillColor
+            }
         }
         if tool.supportsStrokeWidth {
             selectWidthInPopup(style.strokeWidth)
@@ -690,13 +814,31 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                 dashPatternPopup.select(item)
             }
         }
-        if tool.supportsCornerRadius, let rect = canvasView.selectedAnnotation as? RectangleAnnotation {
-            let tag = Int(rect.cornerRadius)
-            if let item = cornerRadiusPopup.itemArray.first(where: { $0.tag == tag }) {
-                cornerRadiusPopup.select(item)
+        if tool.supportsCornerRadius {
+            if let rect = canvasView.selectedAnnotation as? RectangleAnnotation {
+                let tag = Int(rect.cornerRadius)
+                if let item = cornerRadiusPopup.itemArray.first(where: { $0.tag == tag }) {
+                    cornerRadiusPopup.select(item)
+                } else {
+                    let closest = cornerRadiusPopup.itemArray.min(by: { abs($0.tag - tag) < abs($1.tag - tag) })
+                    if let closest { cornerRadiusPopup.select(closest) }
+                }
+            } else if let bubble = canvasView.selectedAnnotation as? SpeechBubbleAnnotation {
+                let tag = Int(bubble.cornerRadius)
+                if let item = cornerRadiusPopup.itemArray.first(where: { $0.tag == tag }) {
+                    cornerRadiusPopup.select(item)
+                } else {
+                    let closest = cornerRadiusPopup.itemArray.min(by: { abs($0.tag - tag) < abs($1.tag - tag) })
+                    if let closest { cornerRadiusPopup.select(closest) }
+                }
             } else {
-                let closest = cornerRadiusPopup.itemArray.min(by: { abs($0.tag - tag) < abs($1.tag - tag) })
-                if let closest { cornerRadiusPopup.select(closest) }
+                let tag = Int(Preferences.shared.defaultCornerRadius)
+                if let item = cornerRadiusPopup.itemArray.first(where: { $0.tag == tag }) {
+                    cornerRadiusPopup.select(item)
+                } else {
+                    let closest = cornerRadiusPopup.itemArray.min(by: { abs($0.tag - tag) < abs($1.tag - tag) })
+                    if let closest { cornerRadiusPopup.select(closest) }
+                }
             }
         }
         if tool.supportsOpacity {
@@ -722,6 +864,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             }
             if let item = textAlignPopup.itemArray.first(where: { $0.tag == tag }) {
                 textAlignPopup.select(item)
+            }
+            let vTag: Int
+            switch style.textVerticalAlignment {
+            case .top: vTag = 0
+            case .center: vTag = 1
+            case .bottom: vTag = 2
+            }
+            if let item = textVerticalAlignPopup.itemArray.first(where: { $0.tag == vTag }) {
+                textVerticalAlignPopup.select(item)
             }
         }
         if tool.supportsArrowHeads, let arrow = canvasView.selectedAnnotation as? ArrowAnnotation {
@@ -777,13 +928,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         scrollView.magnification = 1.0
     }
 
-    @objc private func performUndo(_ sender: Any?) {
+    @objc func performUndo(_ sender: Any?) {
         canvasView.annotationUndoManager.nsUndoManager.undo()
         canvasView.needsDisplay = true
         updateWindowTitle()
     }
 
-    @objc private func performRedo(_ sender: Any?) {
+    @objc func performRedo(_ sender: Any?) {
         canvasView.annotationUndoManager.nsUndoManager.redo()
         canvasView.needsDisplay = true
         updateWindowTitle()
@@ -872,7 +1023,18 @@ extension EditorWindowController: CanvasViewDelegate {
             let annotTool = toolType(for: annotation)
             updateStyleControls(for: annotTool, style: annotation.style)
         } else {
-            updateStyleControls(for: tool, style: canvas.currentStyle)
+            if tool == .stepLabel {
+                var displayStyle = canvas.currentStyle
+                if displayStyle.fillColor == .clear {
+                    displayStyle.fillColor = StepLabelAnnotation.defaultStyle.fillColor
+                }
+                if displayStyle.strokeColor == AnnotationStyle().strokeColor {
+                    displayStyle.strokeColor = StepLabelAnnotation.defaultStyle.strokeColor
+                }
+                updateStyleControls(for: tool, style: displayStyle)
+            } else {
+                updateStyleControls(for: tool, style: canvas.currentStyle)
+            }
         }
     }
 }
