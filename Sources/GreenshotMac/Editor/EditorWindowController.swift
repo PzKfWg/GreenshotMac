@@ -9,6 +9,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private var toolbar: NSToolbar!
     private let sourceURL: URL?
     private let originalImage: NSImage
+    private var hasCopiedSinceLastChange = false
+    private var hasUnsavedChanges = false
 
     // Style toolbar controls (internal for @testable import)
     let strokeColorWell = NSColorWell(style: .minimal)
@@ -34,7 +36,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     let startNumberLabel = NSTextField(labelWithString: "1")
     let startNumberContainer = NSStackView()
 
-    let styleBar = NSStackView()
+    let styleBar = FlowLayoutView()
     var isUpdatingControls = false
     var strokeControlGroup: NSView?
     var fillControlGroup: NSView?
@@ -156,49 +158,63 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         loadStyleFromPreferences()
         setupStyleControls()
         setupStyleBar()
+        updateStyleControls(for: .select, style: canvasView.currentStyle)
 
         toolbar = NSToolbar(identifier: "EditorToolbar")
         toolbar.delegate = self
         toolbar.displayMode = .iconAndLabel
         toolbar.allowsUserCustomization = false
         window?.toolbar = toolbar
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(undoManagerDidChange),
+            name: .NSUndoManagerDidCloseUndoGroup,
+            object: canvasView.annotationUndoManager.nsUndoManager
+        )
+    }
+
+    @objc private func undoManagerDidChange(_ notification: Notification) {
+        hasCopiedSinceLastChange = false
+        hasUnsavedChanges = true
     }
 
     private func setupStyleBar() {
-        styleBar.orientation = .horizontal
-        styleBar.spacing = 12
+        styleBar.horizontalSpacing = 12
+        styleBar.verticalSpacing = 4
         styleBar.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
-        styleBar.alignment = .centerY
         styleBar.translatesAutoresizingMaskIntoConstraints = false
         styleBar.wantsLayer = true
         styleBar.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95).cgColor
+        styleBar.setContentHuggingPriority(.required, for: .vertical)
+        styleBar.setContentCompressionResistancePriority(.required, for: .vertical)
 
         let strokeHStack = NSStackView(views: [strokeColorWell, noStrokeButton])
         strokeHStack.orientation = .horizontal
         strokeHStack.spacing = 2
         let strokeCG = makeControlGroup("Contour", strokeHStack)
         strokeControlGroup = strokeCG
-        styleBar.addArrangedSubview(strokeCG)
+        styleBar.addSubview(strokeCG)
 
         let fillHStack = NSStackView(views: [fillColorWell, noFillButton])
         fillHStack.orientation = .horizontal
         fillHStack.spacing = 2
         let fillCG = makeControlGroup("Fond", fillHStack)
         fillControlGroup = fillCG
-        styleBar.addArrangedSubview(fillCG)
-        styleBar.addArrangedSubview(makeControlGroup("Épaisseur", widthPopup))
-        styleBar.addArrangedSubview(makeControlGroup("Trait", dashPatternPopup))
-        styleBar.addArrangedSubview(makeControlGroup("Coins", cornerRadiusPopup))
-        styleBar.addArrangedSubview(makeControlGroup("Police", fontNamePopup))
-        styleBar.addArrangedSubview(makeControlGroup("Taille", fontSizePopup))
-        styleBar.addArrangedSubview(makeControlGroup("Style", fontStyleContainer))
-        styleBar.addArrangedSubview(makeControlGroup("Alignement", textAlignPopup))
-        styleBar.addArrangedSubview(makeControlGroup("Align. vert.", textVerticalAlignPopup))
-        styleBar.addArrangedSubview(makeControlGroup("Pointes", arrowHeadPopup))
-        styleBar.addArrangedSubview(makeControlGroup("Taille pixel", pixelSizePopup))
-        styleBar.addArrangedSubview(makeControlGroup("Flou", blurRadiusPopup))
-        styleBar.addArrangedSubview(makeControlGroup("Début #", startNumberContainer))
-        styleBar.addArrangedSubview(makeControlGroup("Opacité", opacitySlider))
+        styleBar.addSubview(fillCG)
+        styleBar.addSubview(makeControlGroup("Épaisseur", widthPopup))
+        styleBar.addSubview(makeControlGroup("Trait", dashPatternPopup))
+        styleBar.addSubview(makeControlGroup("Coins", cornerRadiusPopup))
+        styleBar.addSubview(makeControlGroup("Police", fontNamePopup))
+        styleBar.addSubview(makeControlGroup("Taille", fontSizePopup))
+        styleBar.addSubview(makeControlGroup("Style", fontStyleContainer))
+        styleBar.addSubview(makeControlGroup("Alignement", textAlignPopup))
+        styleBar.addSubview(makeControlGroup("Align. vert.", textVerticalAlignPopup))
+        styleBar.addSubview(makeControlGroup("Pointes", arrowHeadPopup))
+        styleBar.addSubview(makeControlGroup("Taille pixel", pixelSizePopup))
+        styleBar.addSubview(makeControlGroup("Flou", blurRadiusPopup))
+        styleBar.addSubview(makeControlGroup("Début #", startNumberContainer))
+        styleBar.addSubview(makeControlGroup("Opacité", opacitySlider))
     }
 
     private func makeControlGroup(_ label: String, _ control: NSView) -> NSStackView {
@@ -901,6 +917,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             startNumberLabel.stringValue = "\(current)"
         }
 
+        styleBar.needsLayout = true
     }
 
     // MARK: - Other Actions
@@ -908,11 +925,33 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func copyToClipboard(_ sender: Any?) {
         guard let image = canvasView.renderFinalImage() else { return }
         ClipboardExporter.copy(image: image)
+        hasCopiedSinceLastChange = true
     }
 
     @objc func saveToFile(_ sender: Any?) {
         guard let image = canvasView.renderFinalImage() else { return }
         FileExporter.save(image: image, suggestedName: sourceURL?.deletingPathExtension().lastPathComponent, from: window)
+        hasUnsavedChanges = false
+    }
+
+    @objc func deleteSourceFile(_ sender: Any?) {
+        guard let url = sourceURL else { return }
+
+        if hasCopiedSinceLastChange {
+            try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            window?.close()
+        } else {
+            let alert = NSAlert()
+            alert.messageText = "Supprimer le fichier ?"
+            alert.informativeText = "Le fichier « \(url.lastPathComponent) » sera mis à la corbeille. Cette action est irréversible si vous n'avez pas copié ou enregistré l'image."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Supprimer")
+            alert.addButton(withTitle: "Annuler")
+            if alert.runModal() == .alertFirstButtonReturn {
+                try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                window?.close()
+            }
+        }
     }
 
     @objc func zoomToFit(_ sender: Any?) {
@@ -944,6 +983,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         guard let image = canvasView.renderFinalImage() else { return }
         let exportDir = Preferences.shared.screenshotFolder
         if let url = FileExporter.quickSave(image: image, to: exportDir) {
+            hasUnsavedChanges = false
             // Brief flash in title to confirm
             let oldTitle = window?.title ?? ""
             window?.title = "Exporté: \(url.lastPathComponent)"
@@ -970,6 +1010,31 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 
     // MARK: - NSWindowDelegate
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if hasCopiedSinceLastChange || !hasUnsavedChanges {
+            return true
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Enregistrer les modifications ?"
+        alert.informativeText = "Voulez-vous enregistrer l'image avant de fermer ?"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Enregistrer")
+        alert.addButton(withTitle: "Ne pas enregistrer")
+        alert.addButton(withTitle: "Annuler")
+
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn:
+            saveToFile(nil)
+            return true
+        case .alertSecondButtonReturn:
+            return true
+        default:
+            return false
+        }
+    }
 
     func windowWillClose(_ notification: Notification) {
         if let appDelegate = NSApp.delegate as? AppDelegate {
@@ -1047,12 +1112,13 @@ extension EditorWindowController: NSToolbarDelegate {
     private static let redoId = NSToolbarItem.Identifier("redo")
     private static let copyId = NSToolbarItem.Identifier("copyClipboard")
     private static let saveId = NSToolbarItem.Identifier("saveFile")
+    private static let deleteId = NSToolbarItem.Identifier("deleteFile")
 
     static let toolbarIdentifiers: [NSToolbarItem.Identifier] = [
         shadowId,
         .flexibleSpace,
         undoId, redoId,
-        copyId, saveId,
+        copyId, saveId, deleteId,
     ]
 
     static let toolbarLabels: [NSToolbarItem.Identifier: String] = [
@@ -1061,6 +1127,7 @@ extension EditorWindowController: NSToolbarDelegate {
         redoId: "Rétablir",
         copyId: "Copier",
         saveId: "Enregistrer",
+        deleteId: "Supprimer",
     ]
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -1098,6 +1165,10 @@ extension EditorWindowController: NSToolbarDelegate {
             item.image = NSImage(systemSymbolName: "square.and.arrow.down", accessibilityDescription: "Enregistrer")
             item.target = self
             item.action = #selector(saveToFile)
+        case Self.deleteId:
+            item.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Supprimer")
+            item.target = self
+            item.action = #selector(deleteSourceFile)
         default:
             break
         }
