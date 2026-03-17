@@ -6,6 +6,7 @@ final class SpeechBubbleAnnotation: Annotation {
     var bounds: CGRect
     var style: AnnotationStyle
     var isSelected: Bool = false
+    var isEditing: Bool = false
     var text: String = "Texte"
     var tailPoint: CGPoint
 
@@ -136,6 +137,7 @@ final class SpeechBubbleAnnotation: Annotation {
     // MARK: - Text rendering (uses bold/italic/alignment from iteration 2)
 
     private func drawText(in context: CGContext) {
+        guard !isEditing else { return }
         context.saveGState()
 
         let textInset = bounds.standardized.insetBy(dx: 6, dy: 4)
@@ -164,8 +166,10 @@ final class SpeechBubbleAnnotation: Annotation {
         let framesetter = CTFramesetterCreateWithAttributedString(attrString)
 
         // CoreText expects bottom-up Y axis; flip for our isFlipped view
-        context.translateBy(x: textInset.origin.x, y: textInset.origin.y + textInset.height)
-        context.scaleBy(x: 1.0, y: -1.0)
+        let flipTransform = CGAffineTransform(a: 1, b: 0, c: 0, d: -1,
+                                               tx: textInset.origin.x,
+                                               ty: textInset.origin.y + textInset.height)
+        context.concatenate(flipTransform)
 
         let localRect = CGRect(origin: .zero, size: textInset.size)
 

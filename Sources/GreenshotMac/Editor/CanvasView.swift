@@ -329,8 +329,13 @@ final class CanvasView: NSView {
     // MARK: - Mouse Events
 
     override func mouseDown(with event: NSEvent) {
+        // Commit any active inline text edit before processing the click
+        if editingTextField != nil {
+            commitTextEditing()
+        }
+
         // Double-click on text annotation to edit (Loop 44)
-        if event.clickCount == 2, currentTool == .select {
+        if event.clickCount == 2 {
             let point = convert(event.locationInWindow, from: nil)
             if let textAnnotation = annotations.reversed().first(where: { $0.hitTest(point: point) }) as? TextAnnotation {
                 beginTextEditing(textAnnotation)
@@ -823,7 +828,11 @@ final class CanvasView: NSView {
     private weak var editingBubble: SpeechBubbleAnnotation?
 
     private func beginTextEditing(_ annotation: TextAnnotation) {
+        // Clean up any existing editing session first
+        commitTextEditing()
+
         selectAnnotation(annotation)
+        annotation.isEditing = true
         let field = NSTextField(frame: annotation.bounds)
         field.stringValue = annotation.text
         field.font = annotation.resolveFont()
@@ -832,16 +841,22 @@ final class CanvasView: NSView {
         field.isBordered = false
         field.focusRingType = .exterior
         field.alignment = .center
+        field.delegate = self
         field.target = self
-        field.action = #selector(textEditingFinished(_:))
+        field.action = #selector(textEditingAction(_:))
         addSubview(field)
         field.becomeFirstResponder()
         editingTextField = field
         editingAnnotation = annotation
+        needsDisplay = true
     }
 
     private func beginBubbleTextEditing(_ bubble: SpeechBubbleAnnotation) {
+        // Clean up any existing editing session first
+        commitTextEditing()
+
         selectAnnotation(bubble)
+        bubble.isEditing = true
         let field = NSTextField(frame: bubble.bounds.insetBy(dx: 8, dy: 8))
         field.stringValue = bubble.text
         field.font = NSFont(name: bubble.style.fontName, size: bubble.style.fontSize) ?? .systemFont(ofSize: bubble.style.fontSize)
@@ -850,36 +865,41 @@ final class CanvasView: NSView {
         field.isBordered = false
         field.focusRingType = .exterior
         field.alignment = .center
+        field.delegate = self
         field.target = self
-        field.action = #selector(bubbleTextEditingFinished(_:))
+        field.action = #selector(textEditingAction(_:))
         addSubview(field)
         field.becomeFirstResponder()
         editingTextField = field
         editingBubble = bubble
-    }
-
-    @objc private func textEditingFinished(_ sender: NSTextField) {
-        if let annotation = editingAnnotation {
-            let oldBounds = annotation.bounds
-            let oldStyle = annotation.style
-            annotation.text = sender.stringValue
-            annotationUndoManager.recordModify(annotation, oldBounds: oldBounds, oldStyle: oldStyle)
-        }
-        sender.removeFromSuperview()
-        editingTextField = nil
-        editingAnnotation = nil
         needsDisplay = true
     }
 
-    @objc private func bubbleTextEditingFinished(_ sender: NSTextField) {
+    @objc private func textEditingAction(_ sender: NSTextField) {
+        commitTextEditing()
+    }
+
+    /// Commits the current inline text edit, updates the annotation, and cleans up the field.
+    /// Safe to call even when no editing session is active.
+    private func commitTextEditing() {
+        guard let field = editingTextField else { return }
+        if let annotation = editingAnnotation {
+            let oldBounds = annotation.bounds
+            let oldStyle = annotation.style
+            annotation.text = field.stringValue
+            annotation.isEditing = false
+            annotationUndoManager.recordModify(annotation, oldBounds: oldBounds, oldStyle: oldStyle)
+        }
         if let bubble = editingBubble {
             let oldBounds = bubble.bounds
             let oldStyle = bubble.style
-            bubble.text = sender.stringValue
+            bubble.text = field.stringValue
+            bubble.isEditing = false
             annotationUndoManager.recordModify(bubble, oldBounds: oldBounds, oldStyle: oldStyle)
         }
-        sender.removeFromSuperview()
+        field.removeFromSuperview()
         editingTextField = nil
+        editingAnnotation = nil
         editingBubble = nil
         needsDisplay = true
     }
@@ -910,5 +930,13 @@ final class CanvasView: NSView {
         creatingAnnotation = nil
 
         // Tool stays active — user can create another annotation of the same type
+    }
+}
+
+// MARK: - NSTextFieldDelegate (inline text editing commit on focus loss)
+
+extension CanvasView: NSTextFieldDelegate {
+    func controlTextDidEndEditing(_ obj: Notification) {
+        commitTextEditing()
     }
 }

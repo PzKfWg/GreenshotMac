@@ -6,6 +6,7 @@ final class TextAnnotation: Annotation {
     var bounds: CGRect
     var style: AnnotationStyle
     var isSelected: Bool = false
+    var isEditing: Bool = false
     var text: String = "Texte"
 
     init(bounds: CGRect, style: AnnotationStyle = AnnotationStyle(), text: String = "Texte") {
@@ -33,58 +34,63 @@ final class TextAnnotation: Annotation {
             context.stroke(bounds)
         }
 
-        let font = resolveFont()
-        let paragraphStyle = NSMutableParagraphStyle()
-        switch style.textHorizontalAlignment {
-        case .left:   paragraphStyle.alignment = .left
-        case .center: paragraphStyle.alignment = .center
-        case .right:  paragraphStyle.alignment = .right
+        // Skip text rendering while inline editing is active (NSTextField overlay handles display)
+        if !isEditing {
+            let font = resolveFont()
+            let paragraphStyle = NSMutableParagraphStyle()
+            switch style.textHorizontalAlignment {
+            case .left:   paragraphStyle.alignment = .left
+            case .center: paragraphStyle.alignment = .center
+            case .right:  paragraphStyle.alignment = .right
+            }
+
+            var attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: style.strokeColor,
+                .paragraphStyle: paragraphStyle
+            ]
+            if style.fontUnderline {
+                attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+            }
+            let attrString = NSAttributedString(string: text, attributes: attrs)
+            let framesetter = CTFramesetterCreateWithAttributedString(attrString)
+
+            // CoreText expects bottom-up Y axis; flip for our isFlipped view
+            let flipTransform = CGAffineTransform(a: 1, b: 0, c: 0, d: -1,
+                                                   tx: bounds.origin.x,
+                                                   ty: bounds.origin.y + bounds.height)
+            context.concatenate(flipTransform)
+
+            let localRect = CGRect(origin: .zero, size: bounds.size)
+
+            // Vertical alignment: calculate text height and offset
+            let textSize = CTFramesetterSuggestFrameSizeWithConstraints(
+                framesetter,
+                CFRangeMake(0, 0),
+                nil,
+                CGSize(width: bounds.width, height: CGFloat.greatestFiniteMagnitude),
+                nil
+            )
+
+            var drawRect = localRect
+            switch style.textVerticalAlignment {
+            case .top:
+                break // default CoreText behavior (top-aligned in flipped coords)
+            case .center:
+                // In non-flipped CoreText coords, text draws from the TOP of the frame downward.
+                // To center: reduce frame height so its top edge is at the vertical center.
+                let targetHeight = min(localRect.height, (localRect.height + textSize.height) / 2)
+                drawRect.size.height = targetHeight
+            case .bottom:
+                // To bottom-align: set frame height to text height so text sits at the bottom.
+                let targetHeight = min(localRect.height, textSize.height)
+                drawRect.size.height = targetHeight
+            }
+
+            let path = CGPath(rect: drawRect, transform: nil)
+            let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), path, nil)
+            CTFrameDraw(frame, context)
         }
-
-        var attrs: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: style.strokeColor,
-            .paragraphStyle: paragraphStyle
-        ]
-        if style.fontUnderline {
-            attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
-        }
-        let attrString = NSAttributedString(string: text, attributes: attrs)
-        let framesetter = CTFramesetterCreateWithAttributedString(attrString)
-
-        // CoreText expects bottom-up Y axis; flip for our isFlipped view
-        context.translateBy(x: bounds.origin.x, y: bounds.origin.y + bounds.height)
-        context.scaleBy(x: 1.0, y: -1.0)
-
-        let localRect = CGRect(origin: .zero, size: bounds.size)
-
-        // Vertical alignment: calculate text height and offset
-        let textSize = CTFramesetterSuggestFrameSizeWithConstraints(
-            framesetter,
-            CFRangeMake(0, 0),
-            nil,
-            CGSize(width: bounds.width, height: CGFloat.greatestFiniteMagnitude),
-            nil
-        )
-
-        var drawRect = localRect
-        switch style.textVerticalAlignment {
-        case .top:
-            break // default CoreText behavior (top-aligned in flipped coords)
-        case .center:
-            // In non-flipped CoreText coords, text draws from the TOP of the frame downward.
-            // To center: reduce frame height so its top edge is at the vertical center.
-            let targetHeight = min(localRect.height, (localRect.height + textSize.height) / 2)
-            drawRect.size.height = targetHeight
-        case .bottom:
-            // To bottom-align: set frame height to text height so text sits at the bottom.
-            let targetHeight = min(localRect.height, textSize.height)
-            drawRect.size.height = targetHeight
-        }
-
-        let path = CGPath(rect: drawRect, transform: nil)
-        let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), path, nil)
-        CTFrameDraw(frame, context)
 
         context.restoreGState()
 
