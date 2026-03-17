@@ -681,6 +681,14 @@ final class CanvasView: NSView {
     private var creatingAnnotation: Annotation?
 
     private func handleCreateMouseDown(point: CGPoint) {
+        // Check if clicking on speech bubble tail handle
+        if let bubble = selectedAnnotation as? SpeechBubbleAnnotation {
+            let tailRect = CGRect(x: bubble.tailPoint.x - 8, y: bubble.tailPoint.y - 8, width: 16, height: 16)
+            if tailRect.contains(point) {
+                handleSelectMouseDown(point: point)
+                return
+            }
+        }
         // If clicking on the currently selected annotation, switch to select behavior (move/resize)
         if let selected = selectedAnnotation, selected.hitTest(point: point) {
             handleSelectMouseDown(point: point)
