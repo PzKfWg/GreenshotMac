@@ -61,8 +61,6 @@ final class StepLabelAnnotation: Annotation {
         context.setFillColor(bgColor.cgColor)
         context.fillEllipse(in: bounds)
 
-        context.restoreGState()
-
         // Draw the number centered in the circle with auto-scaled font
         // fillColor controls the number text color
         let numStr = "\(stepNumber)" as NSString
@@ -76,7 +74,13 @@ final class StepLabelAnnotation: Annotation {
             x: bounds.midX - size.width / 2,
             y: bounds.midY - size.height / 2
         )
+
+        // Save text matrix explicitly (NOT saved by saveGState/restoreGState)
+        let savedTextMatrix = context.textMatrix
         numStr.draw(at: textOrigin, withAttributes: attrs)
+        context.textMatrix = savedTextMatrix
+
+        context.restoreGState()
 
         drawSelectionHandles(in: context)
     }
