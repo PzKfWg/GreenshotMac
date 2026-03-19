@@ -35,6 +35,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     let startNumberStepper = NSStepper()
     let startNumberLabel = NSTextField(labelWithString: "1")
     let startNumberContainer = NSStackView()
+    private var shadowToolbarItem: NSToolbarItem?
 
     let styleBar = FlowLayoutView()
     var isUpdatingControls = false
@@ -1007,6 +1008,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             ? .none : .default
         applyStyleToSelectedAnnotation()
         Preferences.shared.defaultShadowEnabled = canvasView.currentStyle.shadow.enabled
+        updateShadowToolbarIcon()
+    }
+
+    private func updateShadowToolbarIcon() {
+        let symbolName = canvasView.currentStyle.shadow.enabled ? "shadow" : "rectangle"
+        shadowToolbarItem?.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Ombre")
     }
 
     // MARK: - NSWindowDelegate
@@ -1146,9 +1153,11 @@ extension EditorWindowController: NSToolbarDelegate {
 
         switch itemIdentifier {
         case Self.shadowId:
-            item.image = NSImage(systemSymbolName: "shadow", accessibilityDescription: "Ombre")
+            let symbolName = canvasView.currentStyle.shadow.enabled ? "shadow" : "rectangle"
+            item.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Ombre")
             item.target = self
             item.action = #selector(toggleShadow)
+            shadowToolbarItem = item
         case Self.undoId:
             item.image = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: "Annuler")
             item.target = self
