@@ -219,6 +219,9 @@ final class CanvasView: NSView {
         cgContext.translateBy(x: 0, y: size.height)
         cgContext.scaleBy(x: 1, y: -1)
 
+        // Match editor's flipped NSView so NSString.draw behaves consistently
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: cgContext, flipped: true)
+
         for annotation in annotations {
             if let pf = annotation as? PixelateFilter {
                 pf.backgroundImage = bgImage
