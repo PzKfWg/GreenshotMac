@@ -13,10 +13,15 @@ final class HighlightFilter: Annotation {
             // Spec §5.2: shadow is always disabled on highlights
             style.shadow = .none
             style.strokeWidth = 0
+            // A highlight must never be colourless: fall back to the managed
+            // highlight colour when no fill is provided.
+            if style.fillColor == .clear {
+                style.fillColor = Preferences.shared.defaultHighlightColor
+            }
             self.style = style
         } else {
             var defaultStyle = AnnotationStyle()
-            defaultStyle.fillColor = NSColor.yellow.withAlphaComponent(0.4)
+            defaultStyle.fillColor = Preferences.shared.defaultHighlightColor
             defaultStyle.shadow = .none
             self.style = defaultStyle
         }

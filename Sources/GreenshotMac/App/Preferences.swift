@@ -11,6 +11,7 @@ final class Preferences {
         static let defaultStrokeColor = "defaultStrokeColor"
         static let defaultStrokeColorData = "defaultStrokeColorData"
         static let defaultFillColorData = "defaultFillColorData"
+        static let defaultHighlightColorData = "defaultHighlightColorData"
         static let defaultStrokeWidth = "defaultStrokeWidth"
         static let defaultShadowEnabled = "defaultShadowEnabled"
         static let stepLabelStartNumber = "stepLabelStartNumber"
@@ -74,6 +75,19 @@ final class Preferences {
         set {
             let data = try? NSKeyedArchiver.archivedData(withRootObject: newValue, requiringSecureCoding: true)
             defaults.set(data, forKey: Keys.defaultFillColorData)
+        }
+    }
+
+    var defaultHighlightColor: NSColor {
+        get {
+            guard let data = defaults.data(forKey: Keys.defaultHighlightColorData),
+                  let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data)
+            else { return NSColor.yellow.withAlphaComponent(0.4) }
+            return color
+        }
+        set {
+            let data = try? NSKeyedArchiver.archivedData(withRootObject: newValue, requiringSecureCoding: true)
+            defaults.set(data, forKey: Keys.defaultHighlightColorData)
         }
     }
 

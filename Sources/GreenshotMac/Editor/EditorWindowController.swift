@@ -478,7 +478,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvasView.currentStyle.fillColor = sender.color
         updateNoClearButton(noFillButton, transparent: sender.color.alphaComponent == 0)
         applyStyleToSelectedAnnotation()
-        Preferences.shared.defaultFillColor = sender.color
+        if canvasView.currentTool == .highlight {
+            Preferences.shared.defaultHighlightColor = sender.color
+        } else {
+            Preferences.shared.defaultFillColor = sender.color
+        }
     }
 
     private var lastOpaqueStrokeColor: NSColor = .systemRed
@@ -515,7 +519,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             fillColorWell.color = lastOpaqueFillColor
         }
         applyStyleToSelectedAnnotation()
-        Preferences.shared.defaultFillColor = canvasView.currentStyle.fillColor
+        if canvasView.currentTool == .highlight {
+            Preferences.shared.defaultHighlightColor = canvasView.currentStyle.fillColor
+        } else {
+            Preferences.shared.defaultFillColor = canvasView.currentStyle.fillColor
+        }
     }
 
     private func configureNoClearButton(_ button: NSButton, transparent: Bool, toolTip: String) {
@@ -1095,6 +1103,14 @@ extension EditorWindowController: CanvasViewDelegate {
             let annotTool = toolType(for: annotation)
             updateStyleControls(for: annotTool, style: annotation.style)
         } else {
+            // Seed the active fill color from the right persisted default so the
+            // highlighter keeps its own colour, distinct from the shared "Fond".
+            if tool == .highlight {
+                canvas.currentStyle.fillColor = Preferences.shared.defaultHighlightColor
+            } else if tool.supportsFillColor && tool != .stepLabel {
+                canvas.currentStyle.fillColor = Preferences.shared.defaultFillColor
+            }
+
             if tool == .stepLabel {
                 var displayStyle = canvas.currentStyle
                 if displayStyle.fillColor == .clear {
@@ -1112,6 +1128,16 @@ extension EditorWindowController: CanvasViewDelegate {
 }
 
 // MARK: - NSToolbarDelegate
+
+extension EditorWindowController: NSToolbarItemValidation {
+    func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
+        if item.itemIdentifier == Self.deleteId {
+            // Pas de fichier sur disque (image collée depuis le presse-papiers) : rien à supprimer.
+            return sourceURL != nil
+        }
+        return true
+    }
+}
 
 extension EditorWindowController: NSToolbarDelegate {
     private static let shadowId = NSToolbarItem.Identifier("shadow")

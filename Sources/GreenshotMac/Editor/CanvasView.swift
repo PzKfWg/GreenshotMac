@@ -478,6 +478,10 @@ final class CanvasView: NSView {
                 annotationUndoManager.recordModify(annotation, oldBounds: oldBounds, oldStyle: oldStyle)
                 needsDisplay = true
             }
+        } else if event.keyCode == 6 && event.modifierFlags.contains(.command) && event.modifierFlags.contains(.shift) { // Cmd+Shift+Z
+            NSApp.sendAction(#selector(EditorWindowController.performRedo(_:)), to: nil, from: self)
+        } else if event.keyCode == 6 && event.modifierFlags.contains(.command) { // Cmd+Z
+            NSApp.sendAction(#selector(EditorWindowController.performUndo(_:)), to: nil, from: self)
         } else if event.keyCode == 2 && event.modifierFlags.contains(.command) { // Cmd+D
             duplicateSelectedAnnotation()
         } else if event.keyCode == 0 && event.modifierFlags.contains(.command) { // Cmd+A
@@ -743,12 +747,9 @@ final class CanvasView: NSView {
             pf.pixelSize = Preferences.shared.defaultPixelSize
             annotation = pf
         case .highlight:
-            var highlightStyle = currentStyle
-            // Default to yellow highlight if fill color is clear
-            if highlightStyle.fillColor == .clear {
-                highlightStyle.fillColor = NSColor.yellow.withAlphaComponent(0.4)
-            }
-            annotation = HighlightFilter(bounds: bounds, style: highlightStyle)
+            // HighlightFilter falls back to the managed highlight colour when
+            // the fill is clear, so currentStyle can be passed through directly.
+            annotation = HighlightFilter(bounds: bounds, style: currentStyle)
         case .obfuscate:
             let of = ObfuscateFilter(bounds: bounds)
             of.backgroundImage = backgroundImage
