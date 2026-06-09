@@ -1099,18 +1099,21 @@ extension EditorWindowController: CanvasViewDelegate {
 
     func canvasView(_ canvas: CanvasView, didChangeCurrentTool tool: AnnotationTool) {
         toolSidebar.selectTool(tool)
+
+        // Seed the new-annotation template fill from the right per-tool default so
+        // the highlighter keeps its own colour, distinct from the shared "Fond".
+        // This must run regardless of any current selection: currentStyle is the
+        // template for the *next* annotation, not the selected one.
+        if tool == .highlight {
+            canvas.currentStyle.fillColor = Preferences.shared.defaultHighlightColor
+        } else if tool.supportsFillColor && tool != .stepLabel {
+            canvas.currentStyle.fillColor = Preferences.shared.defaultFillColor
+        }
+
         if let annotation = canvas.selectedAnnotation {
             let annotTool = toolType(for: annotation)
             updateStyleControls(for: annotTool, style: annotation.style)
         } else {
-            // Seed the active fill color from the right persisted default so the
-            // highlighter keeps its own colour, distinct from the shared "Fond".
-            if tool == .highlight {
-                canvas.currentStyle.fillColor = Preferences.shared.defaultHighlightColor
-            } else if tool.supportsFillColor && tool != .stepLabel {
-                canvas.currentStyle.fillColor = Preferences.shared.defaultFillColor
-            }
-
             if tool == .stepLabel {
                 var displayStyle = canvas.currentStyle
                 if displayStyle.fillColor == .clear {

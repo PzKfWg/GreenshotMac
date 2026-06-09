@@ -102,6 +102,31 @@ final class HighlightColorTests: XCTestCase {
         prefs.defaultHighlightColor = originalHighlight
     }
 
+    func testSwitchingToHighlightSeedsHighlightColorEvenWithSelection() {
+        let controller = makeEditorController()
+        let prefs = Preferences.shared
+        let originalFill = prefs.defaultFillColor
+        let originalHighlight = prefs.defaultHighlightColor
+
+        prefs.defaultFillColor = .white
+        prefs.defaultHighlightColor = .yellow
+
+        // Draw a rectangle and keep it selected (the common state after drawing).
+        controller.canvasView.currentTool = .rectangle
+        let rect = RectangleAnnotation(bounds: CGRect(x: 10, y: 10, width: 50, height: 50))
+        controller.canvasView.addAnnotation(rect, isUndoAction: true)
+        controller.canvasView.selectAnnotation(rect)
+
+        // Switch to highlight while the rectangle is still selected.
+        controller.canvasView.currentTool = .highlight
+
+        XCTAssertEqual(controller.canvasView.currentStyle.fillColor, .yellow,
+            "Switching to highlight must seed the highlight color into the new-annotation template even when an annotation is selected")
+
+        prefs.defaultFillColor = originalFill
+        prefs.defaultHighlightColor = originalHighlight
+    }
+
     // MARK: - Task 4: HighlightFilter is never colourless
 
     func testHighlightFilterFallsBackToManagedColorWhenFillClear() {
